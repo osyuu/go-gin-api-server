@@ -113,8 +113,8 @@ func TestGetPostByID_NotFound(t *testing.T) {
 func TestGetPosts_Success(t *testing.T) {
 	mockService := NewMockPostService()
 	mockService.On("GetAll").Return([]model.Post{
-		model.Post{ID: "1", Title: "Test Post", Content: "Test Content", Author: "Test Author"},
-		model.Post{ID: "2", Title: "Test Post 2", Content: "Test Content 2", Author: "Test Author 2"},
+		{ID: "1", Title: "Test Post", Content: "Test Content", Author: "Test Author"},
+		{ID: "2", Title: "Test Post 2", Content: "Test Content 2", Author: "Test Author 2"},
 	}, nil)
 	handler := handler.NewPostHandler(mockService)
 	r := setupPostRouter(handler.GetPosts)
