@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"blog_server/pkg/logger"
+	"go-gin-api-server/pkg/logger"
 	"time"
 
 	"github.com/gin-gonic/gin"

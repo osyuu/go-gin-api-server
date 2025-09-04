@@ -1,10 +1,10 @@
 package service
 
 import (
-	"blog_server/internal/model"
-	"blog_server/internal/repository"
-	"blog_server/internal/service"
 	"errors"
+	"go-gin-api-server/internal/model"
+	"go-gin-api-server/internal/repository"
+	"go-gin-api-server/internal/service"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

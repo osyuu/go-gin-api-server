@@ -1,8 +1,8 @@
 package service
 
 import (
-	"blog_server/internal/model"
-	"blog_server/internal/repository"
+	"go-gin-api-server/internal/model"
+	"go-gin-api-server/internal/repository"
 )
 
 type PostService interface {

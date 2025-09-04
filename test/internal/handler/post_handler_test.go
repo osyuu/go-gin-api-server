@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"blog_server/internal/handler"
-	"blog_server/internal/model"
-	"blog_server/internal/repository"
 	"errors"
+	"go-gin-api-server/internal/handler"
+	"go-gin-api-server/internal/model"
+	"go-gin-api-server/internal/repository"
 	"net/http"
 	"net/http/httptest"
 	"strings"

@@ -1,9 +1,9 @@
 package repository
 
 import (
-	"blog_server/internal/model"
 	"errors"
 	"fmt"
+	"go-gin-api-server/internal/model"
 	"sync"
 )
 

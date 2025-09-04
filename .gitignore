@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-blog_server
+go-gin-api-server
 server
 
 # Test binary, built with `go test -c`

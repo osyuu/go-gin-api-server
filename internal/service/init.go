@@ -4,7 +4,7 @@ package service
 // 	"errors"
 // 	"fmt"
 // 	"log"
-// 	"blog_server/model"
+// 	"go-gin-api-server/model"
 
 // 	"github.com/go-xorm/xorm"
 // )
