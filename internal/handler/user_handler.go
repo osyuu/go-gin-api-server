@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"go-gin-api-server/internal/middleware"
 	"go-gin-api-server/internal/service"
 	"go-gin-api-server/pkg/apperrors"
 	"log"
@@ -33,14 +34,26 @@ func NewUserHandler(service service.UserService) *UserHandler {
 }
 
 func (h *UserHandler) RegisterRoutes(r *gin.Engine) {
-	r.GET("/users/:id", h.GetUserByID)
-	r.GET("/users/username/:username", h.GetUserByUsername)
-	r.GET("/users/email/:email", h.GetUserByEmail)
-	r.POST("/users", h.CreateUser)
-	r.PATCH("/users/:id", h.UpdateUserProfile)
-	r.PATCH("/users/:id/activate", h.ActivateUser)
-	r.PATCH("/users/:id/deactivate", h.DeactivateUser)
-	r.DELETE("/users/:id", h.DeleteUser)
+	// Public routes
+	r.POST("/api/v1/users", h.CreateUser)
+}
+
+func (h *UserHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware) {
+	// Protected routes
+	protected := r.Group("/api/v1/users")
+	protected.Use(authMiddleware.RequireAuth())
+	{
+		// Get user info
+		protected.GET("/:id", h.GetUserByID)
+		protected.GET("/username/:username", h.GetUserByUsername)
+		protected.GET("/email/:email", h.GetUserByEmail)
+
+		// User management operations
+		protected.PATCH("/:id", h.UpdateUserProfile)
+		protected.PATCH("/:id/activate", h.ActivateUser)
+		protected.PATCH("/:id/deactivate", h.DeactivateUser)
+		protected.DELETE("/:id", h.DeleteUser)
+	}
 }
 
 func (h *UserHandler) GetUserByID(c *gin.Context) {

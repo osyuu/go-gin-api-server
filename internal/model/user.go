@@ -9,8 +9,8 @@ type User struct {
 	Name      string     `json:"name" binding:"required,min=3"`
 	BirthDate *time.Time `json:"birth_date,omitempty"`
 	// auth related fields
-	Username  string    `json:"username" binding:"required,min=3,max=50,username"`
-	Email     string    `json:"email" binding:"required,email"`
+	Username  string    `json:"username,omitempty" binding:"omitempty,min=3,max=50,username"`
+	Email     string    `json:"email,omitempty" binding:"omitempty,email"`
 	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
