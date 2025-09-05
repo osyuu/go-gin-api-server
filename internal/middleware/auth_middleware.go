@@ -42,6 +42,12 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		// 3. validate token
 		claims, err := m.authService.ValidateToken(token)
 		if err != nil {
+			// 如果是 Access Token 過期，嘗試自動刷新
+			if err == apperrors.ErrExpiredToken {
+				if m.tryAutoRefresh(c) {
+					return // 自動刷新成功，已經設置了新的 token
+				}
+			}
 			m.handleAuthError(c, err, "Token validation failed")
 			return
 		}
@@ -72,6 +78,12 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 		token := parts[1]
 		claims, err := m.authService.ValidateToken(token)
 		if err != nil {
+			// 如果是 Access Token 過期，嘗試自動刷新
+			if err == apperrors.ErrExpiredToken {
+				if m.tryAutoRefresh(c) {
+					return // 自動刷新成功，已經設置了新的 token
+				}
+			}
 			// token無效，繼續執行但不設置user_id
 			c.Next()
 			return
@@ -81,6 +93,38 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 		c.Set("user_id", claims.UserID)
 		c.Next()
 	}
+}
+
+// tryAutoRefresh 嘗試自動刷新 Access Token
+func (m *AuthMiddleware) tryAutoRefresh(c *gin.Context) bool {
+	// 1. 從 cookie 中獲取 refresh token
+	refreshToken, err := c.Cookie("gin_api_refresh_token")
+	if err != nil {
+		logger.Log.Debug("No refresh token found in cookie", zap.Error(err))
+		return false
+	}
+
+	// 2. 使用 refresh token 獲取新的 access token（不刷新 refresh token）
+	newAccessToken, err := m.authService.RefreshAccessToken(refreshToken)
+	if err != nil {
+		logger.Log.Debug("Failed to refresh access token", zap.Error(err))
+		return false
+	}
+
+	// 3. 在響應頭中設置新的 access token
+	c.Header("X-New-Access-Token", newAccessToken)
+	c.Header("X-Token-Type", "Bearer")
+
+	// 4. 驗證新的 access token 並設置 user_id
+	claims, err := m.authService.ValidateToken(newAccessToken)
+	if err != nil {
+		logger.Log.Error("Failed to validate new access token", zap.Error(err))
+		return false
+	}
+
+	c.Set("user_id", claims.UserID)
+	c.Next()
+	return true
 }
 
 // handleAuthError 處理認證錯誤

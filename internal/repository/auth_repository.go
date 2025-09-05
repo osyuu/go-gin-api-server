@@ -28,6 +28,11 @@ func (r *authRepositoryImpl) CreateCredentials(credentials *model.UserCredential
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
+	// Validate input
+	if credentials.UserID == "" {
+		return nil, apperrors.ErrValidation
+	}
+
 	if _, exists := r.credentials[credentials.UserID]; exists {
 		return nil, apperrors.ErrUserExists
 	}

@@ -22,28 +22,14 @@ func NewJWTManager(secretKey string, tokenDuration time.Duration) *JWTManager {
 }
 
 func (j *JWTManager) GenerateToken(user *model.User) (*model.TokenResponse, error) {
-	now := time.Now()
-	expiresAt := now.Add(j.tokenDuration)
-
-	claims := &model.Claims{
-		UserID: user.ID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			IssuedAt:  jwt.NewNumericDate(now),
-			NotBefore: jwt.NewNumericDate(now),
-			Issuer:    "go-gin-api-server",
-			Subject:   user.ID,
-		},
-	}
-
 	// generate access token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(j.secretKey))
+	tokenString, err := j.GenerateAccessToken(user)
 	if err != nil {
 		return nil, err
 	}
 
 	// generate refresh token
+	now := time.Now()
 	refreshExpiresAt := now.Add(j.tokenDuration * 24 * 7) // 7 days
 	refreshClaims := &model.Claims{
 		UserID: user.ID,
@@ -68,6 +54,37 @@ func (j *JWTManager) GenerateToken(user *model.User) (*model.TokenResponse, erro
 		TokenType:    "Bearer",
 		ExpiresIn:    int64(j.tokenDuration.Seconds()),
 	}, nil
+}
+
+// GenerateAccessTokenOnly
+func (j *JWTManager) GenerateAccessToken(user *model.User) (string, error) {
+	now := time.Now()
+	expiresAt := now.Add(j.tokenDuration)
+
+	claims := &model.Claims{
+		UserID: user.ID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+			Issuer:    "go-gin-api-server",
+			Subject:   user.ID,
+		},
+	}
+
+	// generate access token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(j.secretKey))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
+// GetTokenDuration 獲取 token 有效期
+func (j *JWTManager) GetTokenDuration() time.Duration {
+	return j.tokenDuration
 }
 
 // ValidateToken 驗證JWT token

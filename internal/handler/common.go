@@ -1,0 +1,18 @@
+package handler
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+// BindJSON error handling
+func BindJSON(c *gin.Context, obj interface{}) error {
+	if err := c.ShouldBindJSON(obj); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request format",
+		})
+		return err
+	}
+	return nil
+}

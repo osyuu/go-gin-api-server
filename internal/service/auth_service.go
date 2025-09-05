@@ -13,6 +13,7 @@ type AuthService interface {
 	Register(req *model.RegisterRequest) (*model.TokenResponse, error)
 	Login(req *model.LoginRequest) (*model.TokenResponse, error)
 	RefreshToken(refreshToken string) (*model.TokenResponse, error)
+	RefreshAccessToken(refreshToken string) (string, error)
 	ValidateToken(tokenString string) (*model.Claims, error)
 }
 
@@ -133,11 +134,33 @@ func (s *authServiceImpl) RefreshToken(refreshToken string) (*model.TokenRespons
 
 	// check if user is still exists and active
 	user, err := s.userRepo.FindByID(claims.UserID)
-	if err != nil || !user.IsActive {
+	if err != nil {
 		return nil, apperrors.ErrUnauthorized
+	}
+	if !user.IsActive {
+		return nil, apperrors.ErrForbidden
 	}
 
 	return s.jwtMgr.GenerateToken(user)
+}
+
+func (s *authServiceImpl) RefreshAccessToken(refreshToken string) (string, error) {
+	claims, err := s.jwtMgr.ValidateToken(refreshToken)
+	if err != nil {
+		return "", err
+	}
+
+	// check if user is still exists and active
+	user, err := s.userRepo.FindByID(claims.UserID)
+	if err != nil {
+		return "", apperrors.ErrUnauthorized
+	}
+	if !user.IsActive {
+		return "", apperrors.ErrForbidden
+	}
+
+	// 只生成新的 Access Token，不生成新的 Refresh Token
+	return s.jwtMgr.GenerateAccessToken(user)
 }
 
 func (s *authServiceImpl) ValidateToken(tokenString string) (*model.Claims, error) {
