@@ -7,6 +7,7 @@ import (
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/apperrors"
 	"go-gin-api-server/pkg/utils"
+	mockService "go-gin-api-server/test/mocks/service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,18 +20,10 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type mockUserService struct {
-	mock.Mock
-}
-
-func NewMockUserService() *mockUserService {
-	return &mockUserService{}
-}
-
 // Helper functions
 
-func setupTestUserHandler() (*mockUserService, *handler.UserHandler) {
-	mockService := NewMockUserService()
+func setupTestUserHandler() (*mockService.UserServiceMock, *handler.UserHandler) {
+	mockService := mockService.NewUserServiceMock()
 	userHandler := handler.NewUserHandler(mockService)
 	return mockService, userHandler
 }
@@ -83,63 +76,6 @@ func createJSONHTTPRequest(method, url string, data interface{}) *http.Request {
 // Helper function to create typed request
 func createTypedJSONRequest(method, url string, data interface{}) *http.Request {
 	return createJSONHTTPRequest(method, url, data)
-}
-
-// Mock methods
-
-func (m *mockUserService) CreateUser(name, username, email string, birthDate *time.Time) (*model.User, error) {
-	args := m.Called(name, username, email, birthDate)
-	if user := args.Get(0); user != nil {
-		return user.(*model.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
-func (m *mockUserService) GetUserByID(id string) (*model.User, error) {
-	args := m.Called(id)
-	if user := args.Get(0); user != nil {
-		return user.(*model.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
-func (m *mockUserService) GetUserByUsername(username string) (*model.User, error) {
-	args := m.Called(username)
-	if user := args.Get(0); user != nil {
-		return user.(*model.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
-func (m *mockUserService) GetUserByEmail(email string) (*model.User, error) {
-	args := m.Called(email)
-	if user := args.Get(0); user != nil {
-		return user.(*model.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
-func (m *mockUserService) UpdateUserProfile(userID string, name string, birthDate *time.Time) (*model.User, error) {
-	args := m.Called(userID, name, birthDate)
-	if user := args.Get(0); user != nil {
-		return user.(*model.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
-func (m *mockUserService) ActivateUser(userID string) error {
-	args := m.Called(userID)
-	return args.Error(0)
-}
-
-func (m *mockUserService) DeactivateUser(userID string) error {
-	args := m.Called(userID)
-	return args.Error(0)
-}
-
-func (m *mockUserService) DeleteUser(userID string) error {
-	args := m.Called(userID)
-	return args.Error(0)
 }
 
 // TestCases

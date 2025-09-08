@@ -4,6 +4,7 @@ import (
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/internal/service"
 	"go-gin-api-server/pkg/apperrors"
+	mockRepository "go-gin-api-server/test/mocks/repository"
 	"testing"
 	"time"
 
@@ -11,18 +12,10 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type mockUserRepository struct {
-	mock.Mock
-}
-
-func NewMockUserRepository() *mockUserRepository {
-	return &mockUserRepository{}
-}
-
 // Helper functions
 
-func setupTestUserService() (*mockUserRepository, service.UserService) {
-	mockRepo := NewMockUserRepository()
+func setupTestUserService() (*mockRepository.UserRepositoryMock, service.UserService) {
+	mockRepo := mockRepository.NewUserRepositoryMock()
 	mockService := service.NewUserService(mockRepo)
 	return mockRepo, mockService
 }
@@ -35,53 +28,6 @@ func createTestUser() *model.User {
 		"mock_user@test.com",
 		&birthDate,
 	)
-}
-
-// Mock methods
-
-func (m *mockUserRepository) Create(user *model.User) (*model.User, error) {
-	args := m.Called(user)
-	if user := args.Get(0); user != nil {
-		return user.(*model.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
-func (m *mockUserRepository) FindByID(id string) (*model.User, error) {
-	args := m.Called(id)
-	if user := args.Get(0); user != nil {
-		return user.(*model.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
-func (m *mockUserRepository) FindByUsername(username string) (*model.User, error) {
-	args := m.Called(username)
-	if user := args.Get(0); user != nil {
-		return user.(*model.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
-func (m *mockUserRepository) FindByEmail(email string) (*model.User, error) {
-	args := m.Called(email)
-	if user := args.Get(0); user != nil {
-		return user.(*model.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
-func (m *mockUserRepository) Update(id string, user *model.User) (*model.User, error) {
-	args := m.Called(id, user)
-	if u := args.Get(0); u != nil {
-		return u.(*model.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
-func (m *mockUserRepository) Delete(id string) error {
-	args := m.Called(id)
-	return args.Error(0)
 }
 
 // Testcases

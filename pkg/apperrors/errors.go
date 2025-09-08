@@ -9,8 +9,11 @@ var (
 	ErrUnauthorized = errors.New("unauthorized")
 	ErrForbidden    = errors.New("forbidden")
 
-	// specific business errors
+	// user errors
 	ErrUserExists   = errors.New("user already exists")
 	ErrUserUnderAge = errors.New("user under age")
+
+	// auth errors
 	ErrInvalidToken = errors.New("invalid token")
+	ErrExpiredToken = errors.New("token has expired")
 )

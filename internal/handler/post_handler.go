@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"go-gin-api-server/internal/middleware"
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/internal/repository"
 	"go-gin-api-server/internal/service"
@@ -20,11 +21,21 @@ func NewPostHandler(service service.PostService) *PostHandler {
 }
 
 func (h *PostHandler) RegisterRoutes(r *gin.Engine) {
-	r.GET("/posts", h.GetPosts)
-	r.GET("/posts/:id", h.GetPostByID)
-	r.POST("/posts", h.CreatePost)
-	r.PATCH("/posts/:id", h.UpdatePost)
-	r.DELETE("/posts/:id", h.DeletePost)
+	router := r.Group("/api/v1")
+	{
+		router.GET("/posts", h.GetPosts)
+		router.GET("/posts/:id", h.GetPostByID)
+	}
+}
+
+func (h *PostHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware) {
+	protected := r.Group("/api/v1/posts")
+	protected.Use(authMiddleware.RequireAuth())
+	{
+		protected.POST("", h.CreatePost)
+		protected.PATCH("/:id", h.UpdatePost)
+		protected.DELETE("/:id", h.DeletePost)
+	}
 }
 
 func (h *PostHandler) GetPosts(c *gin.Context) {

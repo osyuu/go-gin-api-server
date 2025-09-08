@@ -4,12 +4,24 @@ run:
 
 linters:
   enable:
+    - bodyclose
     - errcheck
+    - goconst
+    - gocritic
     - gofmt
-    - govet
-    - staticcheck
-    - unused
+    - goimports
+    - gosec
     - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - prealloc
+    - staticcheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
 
 linters-settings:
   errcheck:
@@ -21,6 +33,9 @@ issues:
     - path: _test\.go
       linters:
         - errcheck
+        - scopelint
+        - unparam
+        - staticcheck
 
 output:
   formats: colored-line-number

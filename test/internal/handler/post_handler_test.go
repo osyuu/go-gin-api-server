@@ -74,6 +74,10 @@ func (m *mockPostService) Delete(id string) error {
 	return args.Error(0)
 }
 
+const (
+	jsonBody = `{"title": "Title"}`
+)
+
 // Testcases
 
 func TestGetPostByID_Success(t *testing.T) {
@@ -157,7 +161,7 @@ func TestCreatePost_Success(t *testing.T) {
 	r := setupPostRouter(handler.CreatePost)
 
 	// mock request with JSON body
-	jsonBody := `{"title": "Title"}`
+	jsonBody := jsonBody
 	req, _ := http.NewRequest(http.MethodPost, "/posts", strings.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -178,7 +182,7 @@ func TestCreatePost_Error(t *testing.T) {
 	r := setupPostRouter(handler.CreatePost)
 
 	// mock request with JSON body
-	jsonBody := `{"title": "Title"}`
+	jsonBody := jsonBody
 	req, _ := http.NewRequest(http.MethodPost, "/posts", strings.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -199,7 +203,7 @@ func TestUpdatePost_Success(t *testing.T) {
 	r := setupPostRouter(handler.UpdatePost)
 
 	// mock request with JSON body
-	jsonBody := `{"title": "Title"}`
+	jsonBody := jsonBody
 	req, _ := http.NewRequest(http.MethodPatch, "/posts/1", strings.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -220,7 +224,7 @@ func TestUpdatePost_NotFound(t *testing.T) {
 	r := setupPostRouter(handler.UpdatePost)
 
 	// mock request with JSON body
-	jsonBody := `{"title": "Title"}`
+	jsonBody := jsonBody
 	req, _ := http.NewRequest(http.MethodPatch, "/posts/1", strings.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -241,7 +245,7 @@ func TestUpdatePost_Error(t *testing.T) {
 	r := setupPostRouter(handler.UpdatePost)
 
 	// mock request with JSON body
-	jsonBody := `{"title": "Title"}`
+	jsonBody := jsonBody
 	req, _ := http.NewRequest(http.MethodPatch, "/posts/1", strings.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 

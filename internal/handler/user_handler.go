@@ -2,9 +2,9 @@ package handler
 
 import (
 	"errors"
+	"go-gin-api-server/internal/middleware"
 	"go-gin-api-server/internal/service"
 	"go-gin-api-server/pkg/apperrors"
-	"log"
 	"net/http"
 	"time"
 
@@ -33,14 +33,26 @@ func NewUserHandler(service service.UserService) *UserHandler {
 }
 
 func (h *UserHandler) RegisterRoutes(r *gin.Engine) {
-	r.GET("/users/:id", h.GetUserByID)
-	r.GET("/users/username/:username", h.GetUserByUsername)
-	r.GET("/users/email/:email", h.GetUserByEmail)
-	r.POST("/users", h.CreateUser)
-	r.PATCH("/users/:id", h.UpdateUserProfile)
-	r.PATCH("/users/:id/activate", h.ActivateUser)
-	r.PATCH("/users/:id/deactivate", h.DeactivateUser)
-	r.DELETE("/users/:id", h.DeleteUser)
+	// Public routes
+	r.POST("/api/v1/users", h.CreateUser)
+}
+
+func (h *UserHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware) {
+	// Protected routes
+	protected := r.Group("/api/v1/users")
+	protected.Use(authMiddleware.RequireAuth())
+	{
+		// Get user info
+		protected.GET("/:id", h.GetUserByID)
+		protected.GET("/username/:username", h.GetUserByUsername)
+		protected.GET("/email/:email", h.GetUserByEmail)
+
+		// User management operations
+		protected.PATCH("/:id", h.UpdateUserProfile)
+		protected.PATCH("/:id/activate", h.ActivateUser)
+		protected.PATCH("/:id/deactivate", h.DeactivateUser)
+		protected.DELETE("/:id", h.DeleteUser)
+	}
 }
 
 func (h *UserHandler) GetUserByID(c *gin.Context) {
@@ -77,7 +89,7 @@ func (h *UserHandler) GetUserByEmail(c *gin.Context) {
 
 func (h *UserHandler) CreateUser(c *gin.Context) {
 	var req CreateUserRequest
-	if err := h.bindRequest(c, &req); err != nil {
+	if err := BindJSON(c, &req); err != nil {
 		return
 	}
 	createdUser, err := h.service.CreateUser(
@@ -99,7 +111,7 @@ func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 	// 從請求體獲取更新數據
 	var update UpdateUserProfileRequest
 
-	if err := h.bindRequest(c, &update); err != nil {
+	if err := BindJSON(c, &update); err != nil {
 		return
 	}
 
@@ -152,18 +164,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 
 // Helper functions
 
-func (h *UserHandler) bindRequest(c *gin.Context, obj interface{}) error {
-	if err := c.ShouldBindBodyWithJSON(obj); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request format",
-			"details": err.Error(),
-		})
-		return err
-	}
-	return nil
-}
-
-func (h *UserHandler) handleUserError(c *gin.Context, err error, operation string) {
+func (h *UserHandler) handleUserError(c *gin.Context, err error, _ string) {
 	switch {
 	case errors.Is(err, apperrors.ErrNotFound):
 		c.JSON(http.StatusNotFound, gin.H{
@@ -186,7 +187,6 @@ func (h *UserHandler) handleUserError(c *gin.Context, err error, operation strin
 			"error": "Unauthorized",
 		})
 	default:
-		log.Printf("Unexpected error in %s: %v", operation, err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Internal server error",
 		})
