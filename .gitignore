@@ -21,9 +21,6 @@ go-gin-api-server
 # Go workspace file
 go.work
 
-# Air live reload
-.air.toml
-
 # Temporary files
 tmp/
 *.tmp
@@ -77,6 +74,3 @@ coverage.xml
 # Profiling data
 *.prof
 *.pprof
-
-# Air specific
-.air.toml
