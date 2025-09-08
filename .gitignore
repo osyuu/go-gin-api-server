@@ -5,7 +5,9 @@
 *.so
 *.dylib
 go-gin-api-server
-server
+
+# Compiled binaries (but not source directories)
+/server
 
 # Test binary, built with `go test -c`
 *.test
@@ -30,6 +32,7 @@ tmp/
 # Build artifacts
 build/
 dist/
+bin/
 
 # IDE and editor files
 .vscode/
@@ -55,15 +58,21 @@ logs/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
+.env.test
 
 # Database files
 *.db
 *.sqlite
 *.sqlite3
+*.sql
 
 # Coverage reports
 coverage.txt
 coverage.html
+coverage.out
+coverage.xml
 
 # Profiling data
 *.prof
