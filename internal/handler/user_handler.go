@@ -5,7 +5,6 @@ import (
 	"go-gin-api-server/internal/middleware"
 	"go-gin-api-server/internal/service"
 	"go-gin-api-server/pkg/apperrors"
-	"log"
 	"net/http"
 	"time"
 
@@ -90,7 +89,7 @@ func (h *UserHandler) GetUserByEmail(c *gin.Context) {
 
 func (h *UserHandler) CreateUser(c *gin.Context) {
 	var req CreateUserRequest
-	if err := h.bindRequest(c, &req); err != nil {
+	if err := BindJSON(c, &req); err != nil {
 		return
 	}
 	createdUser, err := h.service.CreateUser(
@@ -112,7 +111,7 @@ func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 	// 從請求體獲取更新數據
 	var update UpdateUserProfileRequest
 
-	if err := h.bindRequest(c, &update); err != nil {
+	if err := BindJSON(c, &update); err != nil {
 		return
 	}
 
@@ -165,18 +164,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 
 // Helper functions
 
-func (h *UserHandler) bindRequest(c *gin.Context, obj interface{}) error {
-	if err := c.ShouldBindBodyWithJSON(obj); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request format",
-			"details": err.Error(),
-		})
-		return err
-	}
-	return nil
-}
-
-func (h *UserHandler) handleUserError(c *gin.Context, err error, operation string) {
+func (h *UserHandler) handleUserError(c *gin.Context, err error, _ string) {
 	switch {
 	case errors.Is(err, apperrors.ErrNotFound):
 		c.JSON(http.StatusNotFound, gin.H{
@@ -199,7 +187,6 @@ func (h *UserHandler) handleUserError(c *gin.Context, err error, operation strin
 			"error": "Unauthorized",
 		})
 	default:
-		log.Printf("Unexpected error in %s: %v", operation, err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Internal server error",
 		})

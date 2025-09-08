@@ -1,4 +1,4 @@
-package services
+package service
 
 import (
 	"go-gin-api-server/internal/model"
@@ -18,37 +18,63 @@ func NewAuthServiceMock() *AuthServiceMock {
 
 func (m *AuthServiceMock) Register(req *model.RegisterRequest) (*model.TokenResponse, error) {
 	args := m.Called(req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
+	if resp := args.Get(0); resp != nil {
+		response, ok := resp.(*model.TokenResponse)
+		if !ok {
+			return nil, args.Error(1)
+		}
+		err := args.Error(1)
+		return response, err
 	}
-	return args.Get(0).(*model.TokenResponse), args.Error(1)
+	err := args.Error(1)
+	return nil, err
 }
 
 func (m *AuthServiceMock) Login(req *model.LoginRequest) (*model.TokenResponse, error) {
 	args := m.Called(req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
+	if resp := args.Get(0); resp != nil {
+		response, ok := resp.(*model.TokenResponse)
+		if !ok {
+			return nil, args.Error(1)
+		}
+		err := args.Error(1)
+		return response, err
 	}
-	return args.Get(0).(*model.TokenResponse), args.Error(1)
+	err := args.Error(1)
+	return nil, err
 }
 
 func (m *AuthServiceMock) RefreshToken(refreshToken string) (*model.TokenResponse, error) {
 	args := m.Called(refreshToken)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
+	if resp := args.Get(0); resp != nil {
+		response, ok := resp.(*model.TokenResponse)
+		if !ok {
+			return nil, args.Error(1)
+		}
+		err := args.Error(1)
+		return response, err
 	}
-	return args.Get(0).(*model.TokenResponse), args.Error(1)
+	err := args.Error(1)
+	return nil, err
 }
 
 func (m *AuthServiceMock) RefreshAccessToken(refreshToken string) (string, error) {
 	args := m.Called(refreshToken)
-	return args.String(0), args.Error(1)
+	token := args.String(0)
+	err := args.Error(1)
+	return token, err
 }
 
 func (m *AuthServiceMock) ValidateToken(tokenString string) (*model.Claims, error) {
 	args := m.Called(tokenString)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
+	if claims := args.Get(0); claims != nil {
+		claimsResult, ok := claims.(*model.Claims)
+		if !ok {
+			return nil, args.Error(1)
+		}
+		err := args.Error(1)
+		return claimsResult, err
 	}
-	return args.Get(0).(*model.Claims), args.Error(1)
+	err := args.Error(1)
+	return nil, err
 }

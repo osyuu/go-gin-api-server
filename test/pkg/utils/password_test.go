@@ -7,9 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	passwordValue = "testpassword123"
+)
+
 func TestHashPassword(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		password := "testpassword123"
+		password := passwordValue
 
 		hashedPassword, err := utils.HashPassword(password)
 
@@ -21,7 +25,7 @@ func TestHashPassword(t *testing.T) {
 
 func TestCheckPassword(t *testing.T) {
 	t.Run("ValidPassword", func(t *testing.T) {
-		password := "testpassword123"
+		password := passwordValue
 		hashedPassword, err := utils.HashPassword(password)
 		assert.NoError(t, err)
 
@@ -31,7 +35,7 @@ func TestCheckPassword(t *testing.T) {
 	})
 
 	t.Run("InvalidPassword", func(t *testing.T) {
-		password := "testpassword123"
+		password := passwordValue
 		wrongPassword := "wrongpassword"
 		hashedPassword, err := utils.HashPassword(password)
 		assert.NoError(t, err)
@@ -44,7 +48,7 @@ func TestCheckPassword(t *testing.T) {
 
 func TestPasswordRoundTrip(t *testing.T) {
 	t.Run("HashAndCheck", func(t *testing.T) {
-		password := "testpassword123"
+		password := passwordValue
 
 		hashedPassword, err := utils.HashPassword(password)
 		assert.NoError(t, err)

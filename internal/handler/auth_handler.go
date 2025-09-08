@@ -87,7 +87,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	c.JSON(http.StatusOK, tokenResponse)
 }
 
-func (h *AuthHandler) handleAuthError(c *gin.Context, err error, operation string) {
+func (h *AuthHandler) handleAuthError(c *gin.Context, err error, _ string) {
 	switch err {
 	case apperrors.ErrValidation:
 		c.JSON(http.StatusBadRequest, gin.H{

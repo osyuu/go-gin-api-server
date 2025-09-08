@@ -4,6 +4,7 @@ import (
 	"go-gin-api-server/internal/model"
 	"regexp"
 
+	"github.com/bytedance/gopkg/util/logger"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -43,7 +44,10 @@ func UsernameOrEmailValidator(sl validator.StructLevel) {
 
 // RegisterCustomValidators 註冊自定義驗證器
 func RegisterCustomValidators(v *validator.Validate) {
-	v.RegisterValidation("username", UsernameValidator)
+	err := v.RegisterValidation("username", UsernameValidator)
+	if err != nil {
+		logger.Fatalf("Failed to register username validator: %v", err)
+	}
 	v.RegisterStructValidation(UsernameOrEmailValidator, model.LoginRequest{})
 	v.RegisterStructValidation(UsernameOrEmailValidator, model.RegisterRequest{})
 }

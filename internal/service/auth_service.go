@@ -7,6 +7,8 @@ import (
 	"go-gin-api-server/pkg/utils"
 	"slices"
 	"time"
+
+	"github.com/bytedance/gopkg/util/logger"
 )
 
 type AuthService interface {
@@ -69,7 +71,9 @@ func (s *authServiceImpl) Register(req *model.RegisterRequest) (*model.TokenResp
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
 		// if password hash failed, delete the created user
-		_ = s.userRepo.Delete(user.ID)
+		if deleteErr := s.userRepo.Delete(user.ID); deleteErr != nil {
+			logger.Errorf("Failed to delete user: %v", deleteErr)
+		}
 		return nil, err
 	}
 
@@ -82,7 +86,9 @@ func (s *authServiceImpl) Register(req *model.RegisterRequest) (*model.TokenResp
 	_, err = s.authRepo.CreateCredentials(credentials)
 	if err != nil {
 		// if credentials creation failed, delete the created user
-		_ = s.userRepo.Delete(user.ID)
+		if deleteErr := s.userRepo.Delete(user.ID); deleteErr != nil {
+			logger.Errorf("Failed to delete user: %v", deleteErr)
+		}
 		return nil, err
 	}
 

@@ -13,9 +13,13 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	testUserID = "test-user-id"
+)
+
 // Helper functions
-func setupTestAuthService() (*mockUserRepository, *mockRepository.AuthRepositoryMock, *utils.JWTManager, service.AuthService) {
-	mockUserRepo := NewMockUserRepository()
+func setupTestAuthService() (*mockRepository.UserRepositoryMock, *mockRepository.AuthRepositoryMock, *utils.JWTManager, service.AuthService) {
+	mockUserRepo := mockRepository.NewUserRepositoryMock()
 	mockAuthRepo := mockRepository.NewAuthRepositoryMock()
 	jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
 	authService := service.NewAuthService(mockUserRepo, mockAuthRepo, jwtMgr)
@@ -48,7 +52,7 @@ func TestAuthService_Register(t *testing.T) {
 		req := createTestRegisterRequest()
 
 		// Setup mocks
-		mockUserRepo.On("Create", mock.AnythingOfType("*model.User")).Return(&model.User{ID: "test-user-id"}, nil)
+		mockUserRepo.On("Create", mock.AnythingOfType("*model.User")).Return(&model.User{ID: testUserID}, nil)
 		mockAuthRepo.On("CreateCredentials", mock.AnythingOfType("*model.UserCredentials")).Return(&model.UserCredentials{}, nil)
 
 		// run
@@ -114,7 +118,7 @@ func TestAuthService_Login(t *testing.T) {
 		mockUserRepo, mockAuthRepo, _, authService := setupTestAuthService()
 		req := createTestLoginRequest()
 
-		userID := "test-user-id"
+		userID := testUserID
 		user := &model.User{ID: userID, IsActive: true}
 
 		// generate bcrypt hash
@@ -148,7 +152,7 @@ func TestAuthService_Login(t *testing.T) {
 			Password: "password123",
 		}
 
-		userID := "test-user-id"
+		userID := testUserID
 		user := &model.User{ID: userID, IsActive: true}
 
 		// 生成真實的 bcrypt hash
@@ -195,7 +199,7 @@ func TestAuthService_Login(t *testing.T) {
 		mockUserRepo, mockAuthRepo, _, authService := setupTestAuthService()
 		req := createTestLoginRequest()
 
-		userID := "test-user-id"
+		userID := testUserID
 		user := &model.User{ID: userID, IsActive: false}
 
 		// generate bcrypt hash
@@ -225,7 +229,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockUserRepo, _, jwtMgr, authService := setupTestAuthService()
 
-		userID := "test-user-id"
+		userID := testUserID
 		user := &model.User{ID: userID, IsActive: true}
 
 		// Generate a valid refresh token
@@ -260,7 +264,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 
 	t.Run("UserNotFound", func(t *testing.T) {
 		mockUserRepo, _, jwtMgr, authService := setupTestAuthService()
-		userID := "test-user-id"
+		userID := testUserID
 		user := &model.User{ID: userID, IsActive: true}
 
 		// Generate a valid refresh token
@@ -282,7 +286,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 
 	t.Run("UserInactive", func(t *testing.T) {
 		mockUserRepo, _, jwtMgr, authService := setupTestAuthService()
-		userID := "test-user-id"
+		userID := testUserID
 		user := &model.User{ID: userID, IsActive: false}
 
 		// Generate a valid refresh token
@@ -306,7 +310,7 @@ func TestAuthService_RefreshToken(t *testing.T) {
 func TestAuthService_ValidateToken(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		_, _, jwtMgr, authService := setupTestAuthService()
-		userID := "test-user-id"
+		userID := testUserID
 		user := &model.User{ID: userID, IsActive: true}
 
 		// Generate a valid token

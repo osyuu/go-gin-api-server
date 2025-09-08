@@ -14,6 +14,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	expiredTokenValue = "expired-token"
+)
+
 func setupTestAuthMiddleware() (*middleware.AuthMiddleware, *mockServices.AuthServiceMock) {
 	// Initialize logger for testing
 	logger.Init("test")
@@ -142,7 +146,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 
 	t.Run("ExpiredTokenWithAutoRefresh", func(t *testing.T) {
 		authMiddleware, mockAuthService := setupTestAuthMiddleware()
-		expiredToken := "expired-token"
+		expiredToken := expiredTokenValue
 		refreshToken := "valid-refresh-token"
 		newAccessToken := "new-access-token"
 		claims := &model.Claims{UserID: "user-123"}
@@ -180,7 +184,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 
 	t.Run("ExpiredTokenWithoutRefreshToken", func(t *testing.T) {
 		authMiddleware, mockAuthService := setupTestAuthMiddleware()
-		expiredToken := "expired-token"
+		expiredToken := expiredTokenValue
 
 		// Setup mock
 		mockAuthService.On("ValidateToken", expiredToken).Return(nil, apperrors.ErrExpiredToken)
@@ -207,7 +211,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 
 	t.Run("ExpiredTokenWithInvalidRefreshToken", func(t *testing.T) {
 		authMiddleware, mockAuthService := setupTestAuthMiddleware()
-		expiredToken := "expired-token"
+		expiredToken := expiredTokenValue
 		invalidRefreshToken := "invalid-refresh-token"
 
 		// Setup mocks
@@ -319,7 +323,7 @@ func TestAuthMiddleware_OptionalAuth(t *testing.T) {
 
 	t.Run("ExpiredTokenWithAutoRefresh", func(t *testing.T) {
 		authMiddleware, mockAuthService := setupTestAuthMiddleware()
-		expiredToken := "expired-token"
+		expiredToken := expiredTokenValue
 		refreshToken := "valid-refresh-token"
 		newAccessToken := "new-access-token"
 		claims := &model.Claims{UserID: "user-123"}

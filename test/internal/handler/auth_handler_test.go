@@ -7,7 +7,7 @@ import (
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/apperrors"
 	"go-gin-api-server/pkg/utils"
-	mockServices "go-gin-api-server/test/mocks/service"
+	mockService "go-gin-api-server/test/mocks/service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,8 +20,8 @@ import (
 )
 
 // Helper functions
-func setupTestAuthHandler() (*handler.AuthHandler, *mockServices.AuthServiceMock) {
-	mockAuthService := mockServices.NewAuthServiceMock()
+func setupTestAuthHandler() (*handler.AuthHandler, *mockService.AuthServiceMock) {
+	mockAuthService := mockService.NewAuthServiceMock()
 	authHandler := handler.NewAuthHandler(mockAuthService)
 	return authHandler, mockAuthService
 }

@@ -1,4 +1,4 @@
-package repositories
+package repository
 
 import (
 	"go-gin-api-server/internal/model"
@@ -16,15 +16,30 @@ func NewAuthRepositoryMock() *AuthRepositoryMock {
 
 func (m *AuthRepositoryMock) CreateCredentials(credentials *model.UserCredentials) (*model.UserCredentials, error) {
 	args := m.Called(credentials)
-	return args.Get(0).(*model.UserCredentials), args.Error(1)
+	if user := args.Get(0); user != nil {
+		userResult, ok := user.(*model.UserCredentials)
+		if !ok {
+			return nil, args.Error(1)
+		}
+		err := args.Error(1)
+		return userResult, err
+	}
+	err := args.Error(1)
+	return nil, err
 }
 
 func (m *AuthRepositoryMock) FindByUserID(userID string) (*model.UserCredentials, error) {
 	args := m.Called(userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
+	if user := args.Get(0); user != nil {
+		userResult, ok := user.(*model.UserCredentials)
+		if !ok {
+			return nil, args.Error(1)
+		}
+		err := args.Error(1)
+		return userResult, err
 	}
-	return args.Get(0).(*model.UserCredentials), args.Error(1)
+	err := args.Error(1)
+	return nil, err
 }
 
 func (m *AuthRepositoryMock) UpdatePassword(userID string, hashedPassword string) error {
