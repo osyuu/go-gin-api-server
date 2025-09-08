@@ -1,8 +1,9 @@
 module go-gin-api-server
 
-go 1.24.4
+go 1.24
 
 require (
+	github.com/bytedance/gopkg v0.1.3
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -13,7 +14,6 @@ require (
 )
 
 require (
-	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.14.1 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
