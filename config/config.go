@@ -10,12 +10,23 @@ type Config struct {
 	Port     string
 	LogLevel string
 	JWT      JWTConfig
+	Database DatabaseConfig
 }
 
 type JWTConfig struct {
 	Secret                 string
 	AccessTokenExpiration  time.Duration
 	RefreshTokenExpiration time.Duration
+}
+
+type DatabaseConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
+	TimeZone string
 }
 
 var AppConfig *Config
@@ -29,6 +40,15 @@ func LoadConfig() *Config {
 			Secret:                 getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 			AccessTokenExpiration:  getDurationEnv("JWT_ACCESS_TOKEN_EXPIRATION", 15*time.Minute),
 			RefreshTokenExpiration: getDurationEnv("JWT_REFRESH_TOKEN_EXPIRATION", 7*24*time.Hour),
+		},
+		Database: DatabaseConfig{
+			Host:     getEnv("DB_HOST", "localhost"),
+			Port:     getEnv("DB_PORT", "5432"),
+			User:     getEnv("DB_USER", "postgres"),
+			Password: getEnv("DB_PASSWORD", "password"),
+			DBName:   getEnv("DB_NAME", "gin_api_server"),
+			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+			TimeZone: getEnv("DB_TIMEZONE", "UTC"),
 		},
 	}
 	return AppConfig

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go-gin-api-server/config"
+	"go-gin-api-server/internal/database"
 	"go-gin-api-server/internal/server"
 	"go-gin-api-server/pkg/logger"
 	"log"
@@ -27,6 +28,21 @@ func main() {
 			log.Printf("Failed to sync logger: %v", err)
 		}
 	}()
+
+	// Initialize database
+	if err := database.InitDatabase(cfg.Database); err != nil {
+		logger.Log.Fatal("Failed to initialize database", zap.Error(err))
+	}
+	defer func() {
+		if err := database.CloseDatabase(); err != nil {
+			logger.Log.Error("Failed to close database", zap.Error(err))
+		}
+	}()
+
+	// Auto migrate database tables
+	if err := database.AutoMigrate(); err != nil {
+		logger.Log.Fatal("Failed to migrate database", zap.Error(err))
+	}
 
 	router := server.NewServer(cfg)
 
