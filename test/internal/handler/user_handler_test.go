@@ -87,16 +87,15 @@ func TestCreateUser(t *testing.T) {
 
 		// 創建期望的用戶數據
 		birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-		expectedUser := &model.User{
-			ID:        "test-id",
-			Name:      "Test User",
-			Username:  "test_user",
-			Email:     "test_user@test.com",
-			BirthDate: &birthDate,
-			IsActive:  true,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
+		expectedUser := model.CreateUser(
+			"Test User",
+			"test_user",
+			"test_user@test.com",
+			&birthDate,
+		)
+		expectedUser.ID = "test-id"
+		expectedUser.CreatedAt = time.Now().UTC()
+		expectedUser.UpdatedAt = time.Now().UTC()
 
 		// Mock 期望與實際請求參數匹配
 		mockService.On("CreateUser",
@@ -399,8 +398,8 @@ func TestUpdateUserProfile(t *testing.T) {
 			Email:     "test_user@test.com",
 			BirthDate: &birthDate,
 			IsActive:  true,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			CreatedAt: time.Now().UTC(),
+			UpdatedAt: time.Now().UTC(),
 		}
 
 		mockService.On("UpdateUserProfile",

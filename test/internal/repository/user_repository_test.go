@@ -24,7 +24,10 @@ func createTestUser() *model.User {
 
 func TestCreateUserAndFindByID(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 		user := createTestUser()
 
 		// run
@@ -33,11 +36,25 @@ func TestCreateUserAndFindByID(t *testing.T) {
 
 		// assert
 		assert.NoError(t, err)
-		assert.Equal(t, created, found)
+		assert.Equal(t, created.ID, found.ID)
+		assert.Equal(t, created.Name, found.Name)
+		assert.Equal(t, created.Username, found.Username)
+		assert.Equal(t, created.Email, found.Email)
+		assert.Equal(t, created.IsActive, found.IsActive)
+		if created.BirthDate != nil && found.BirthDate != nil {
+			assert.Equal(t, created.BirthDate.UTC(), found.BirthDate.UTC())
+		} else {
+			assert.Equal(t, created.BirthDate, found.BirthDate)
+		}
+		assert.Equal(t, created.CreatedAt.UTC(), found.CreatedAt.UTC())
+		assert.Equal(t, created.UpdatedAt.UTC(), found.UpdatedAt.UTC())
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 
 		found, err := repo.FindByID("non-existent-id")
 
@@ -48,7 +65,10 @@ func TestCreateUserAndFindByID(t *testing.T) {
 
 func TestCreateUserAndFindByUsername(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 		user := createTestUser()
 
 		// run
@@ -57,11 +77,24 @@ func TestCreateUserAndFindByUsername(t *testing.T) {
 
 		// assert
 		assert.NoError(t, err)
-		assert.Equal(t, created, found)
+		assert.Equal(t, created.ID, found.ID)
+		assert.Equal(t, created.Name, found.Name)
+		assert.Equal(t, created.Username, found.Username)
+		assert.Equal(t, created.Email, found.Email)
+		if created.BirthDate != nil && found.BirthDate != nil {
+			assert.Equal(t, created.BirthDate.UTC(), found.BirthDate.UTC())
+		} else {
+			assert.Equal(t, created.BirthDate, found.BirthDate)
+		}
+		assert.Equal(t, created.CreatedAt.UTC(), found.CreatedAt.UTC())
+		assert.Equal(t, created.UpdatedAt.UTC(), found.UpdatedAt.UTC())
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 
 		found, err := repo.FindByUsername("non-existent-username")
 
@@ -72,7 +105,10 @@ func TestCreateUserAndFindByUsername(t *testing.T) {
 
 func TestCreateUserAndFindByEmail(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 		user := createTestUser()
 
 		// run
@@ -81,11 +117,24 @@ func TestCreateUserAndFindByEmail(t *testing.T) {
 
 		// assert
 		assert.NoError(t, err)
-		assert.Equal(t, created, found)
+		assert.Equal(t, created.ID, found.ID)
+		assert.Equal(t, created.Name, found.Name)
+		assert.Equal(t, created.Username, found.Username)
+		assert.Equal(t, created.Email, found.Email)
+		if created.BirthDate != nil && found.BirthDate != nil {
+			assert.Equal(t, created.BirthDate.UTC(), found.BirthDate.UTC())
+		} else {
+			assert.Equal(t, created.BirthDate, found.BirthDate)
+		}
+		assert.Equal(t, created.CreatedAt.UTC(), found.CreatedAt.UTC())
+		assert.Equal(t, created.UpdatedAt.UTC(), found.UpdatedAt.UTC())
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 
 		found, err := repo.FindByEmail("non-existent-email")
 
@@ -96,7 +145,10 @@ func TestCreateUserAndFindByEmail(t *testing.T) {
 
 func TestUpdateUser(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 		user := createTestUser()
 
 		// run
@@ -114,15 +166,22 @@ func TestUpdateUser(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, created.ID, found.ID)
 		assert.Equal(t, updated.Name, found.Name)
-		assert.Equal(t, updated.BirthDate, found.BirthDate)
 		assert.Equal(t, updated.Username, found.Username)
 		assert.Equal(t, updated.Email, found.Email)
-		assert.Equal(t, created.CreatedAt, found.CreatedAt)
+		if updated.BirthDate != nil && found.BirthDate != nil {
+			assert.Equal(t, updated.BirthDate.UTC(), found.BirthDate.UTC())
+		} else {
+			assert.Equal(t, updated.BirthDate, found.BirthDate)
+		}
+		assert.Equal(t, created.CreatedAt.UTC(), found.CreatedAt.UTC())
 		assert.True(t, found.UpdatedAt.After(found.CreatedAt))
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 
 		updated := &model.User{Name: "updated"}
 		found, err := repo.Update("non-existent-id", updated)
@@ -134,7 +193,10 @@ func TestUpdateUser(t *testing.T) {
 
 func TestCreateUser(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 		user := createTestUser()
 
 		// run
@@ -142,11 +204,24 @@ func TestCreateUser(t *testing.T) {
 
 		// assert
 		assert.NoError(t, err)
-		assert.Equal(t, user, created)
+		assert.Equal(t, user.ID, created.ID)
+		assert.Equal(t, user.Name, created.Name)
+		assert.Equal(t, user.Username, created.Username)
+		assert.Equal(t, user.Email, created.Email)
+		if user.BirthDate != nil && created.BirthDate != nil {
+			assert.Equal(t, user.BirthDate.UTC(), created.BirthDate.UTC())
+		} else {
+			assert.Equal(t, user.BirthDate, created.BirthDate)
+		}
+		assert.Equal(t, user.CreatedAt.UTC(), created.CreatedAt.UTC())
+		assert.Equal(t, user.UpdatedAt.UTC(), created.UpdatedAt.UTC())
 	})
 
 	t.Run("ErrUserExists", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 		user := createTestUser()
 		user2 := createTestUser()
 
@@ -162,7 +237,10 @@ func TestCreateUser(t *testing.T) {
 
 func TestDeleteUser(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 		user := createTestUser()
 
 		// run
@@ -176,7 +254,10 @@ func TestDeleteUser(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		repo := repository.NewUserRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewUserRepositoryWithDB(tx)
 
 		err := repo.Delete("non-existent-id")
 

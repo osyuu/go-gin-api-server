@@ -94,7 +94,7 @@ func (s *userServiceImpl) DeleteUser(userID string) error {
 
 // isUnder13 檢查用戶是否未滿13歲
 func (s *userServiceImpl) isUnder13(birthDate time.Time) bool {
-	now := time.Now()
+	now := time.Now().UTC()
 	age := now.Year() - birthDate.Year()
 
 	// 如果還沒到生日，年齡減1

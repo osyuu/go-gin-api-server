@@ -104,7 +104,7 @@ func TestUpdateUserProfile(t *testing.T) {
 			BirthDate: &birthDate,
 			IsActive:  created.IsActive,
 			CreatedAt: created.CreatedAt,
-			UpdatedAt: time.Now(),
+			UpdatedAt: created.CreatedAt.Add(time.Second), // 確保 UpdatedAt 晚於 CreatedAt
 		}
 
 		repo.On("Update", mock.Anything, mock.Anything).Return(expected, nil)
