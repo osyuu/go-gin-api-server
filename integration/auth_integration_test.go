@@ -20,18 +20,19 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
 
-func setupIntegrationAuthRouter() *gin.Engine {
+func setupIntegrationAuthRouter(db *gorm.DB) *gin.Engine {
 	// Initialize logger
 	logger.Init("test")
 
 	// Load config
-	cfg := config.LoadConfig()
+	cfg := config.LoadTestConfig()
 
-	// Setup dependencies
-	userRepo := repository.NewUserRepository()
-	authRepo := repository.NewAuthRepository()
+	// Setup dependencies with transaction
+	userRepo := repository.NewUserRepositoryWithDB(db)
+	authRepo := repository.NewAuthRepositoryWithDB(db)
 	jwtMgr := utils.NewJWTManager(cfg.JWT.Secret, cfg.JWT.AccessTokenExpiration)
 	authService := service.NewAuthService(userRepo, authRepo, jwtMgr)
 
@@ -61,7 +62,9 @@ func setupIntegrationAuthRouter() *gin.Engine {
 }
 
 func TestAuthIntegration_RegisterAndLogin(t *testing.T) {
-	router := setupIntegrationAuthRouter()
+	db := setup()
+	defer teardown(db)
+	router := setupIntegrationAuthRouter(db)
 
 	// Test data
 	birthDate := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -114,7 +117,9 @@ func TestAuthIntegration_RegisterAndLogin(t *testing.T) {
 }
 
 func TestAuthIntegration_ProtectedRoute(t *testing.T) {
-	router := setupIntegrationAuthRouter()
+	db := setup()
+	defer teardown(db)
+	router := setupIntegrationAuthRouter(db)
 
 	// First register a user
 	birthDate := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -179,7 +184,9 @@ func TestAuthIntegration_ProtectedRoute(t *testing.T) {
 }
 
 func TestAuthIntegration_RefreshToken(t *testing.T) {
-	router := setupIntegrationAuthRouter()
+	db := setup()
+	defer teardown(db)
+	router := setupIntegrationAuthRouter(db)
 
 	// First register a user
 	birthDate := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)

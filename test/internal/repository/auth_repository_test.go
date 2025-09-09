@@ -21,20 +21,30 @@ func createTestCredentials() *model.UserCredentials {
 
 func TestCreateCredentialsAndFindByUserID(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		repo := repository.NewAuthRepository()
+		tx := setup()
+		defer teardown(tx)
+		repo := repository.NewAuthRepositoryWithDB(tx)
 		credentials := createTestCredentials()
 
 		// run
-		created, _ := repo.CreateCredentials(credentials)
+		created, err := repo.CreateCredentials(credentials)
+		assert.NoError(t, err)
+
 		found, err := repo.FindByUserID(created.UserID)
+		assert.NoError(t, err)
 
 		// assert
-		assert.NoError(t, err)
-		assert.Equal(t, created, found)
+		assert.Equal(t, created.UserID, found.UserID)
+		assert.Equal(t, created.Password, found.Password)
+		assert.Equal(t, created.CreatedAt.UTC(), found.CreatedAt.UTC())
+		assert.Equal(t, created.UpdatedAt.UTC(), found.UpdatedAt.UTC())
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		repo := repository.NewAuthRepository()
+		tx := setup()
+		defer teardown(tx)
+
+		repo := repository.NewAuthRepositoryWithDB(tx)
 
 		found, err := repo.FindByUserID("non-existent-user")
 
@@ -45,7 +55,9 @@ func TestCreateCredentialsAndFindByUserID(t *testing.T) {
 
 func TestCreateCredentials(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		repo := repository.NewAuthRepository()
+		tx := setup()
+		defer teardown(tx)
+		repo := repository.NewAuthRepositoryWithDB(tx)
 		credentials := createTestCredentials()
 
 		// run
@@ -53,15 +65,21 @@ func TestCreateCredentials(t *testing.T) {
 
 		// assert
 		assert.NoError(t, err)
-		assert.Equal(t, credentials, created)
+		assert.Equal(t, credentials.UserID, created.UserID)
+		assert.Equal(t, credentials.Password, created.Password)
+		assert.NotZero(t, created.CreatedAt)
+		assert.NotZero(t, created.UpdatedAt)
 	})
 
 	t.Run("ErrUserExists", func(t *testing.T) {
-		repo := repository.NewAuthRepository()
+		tx := setup()
+		defer teardown(tx)
+		repo := repository.NewAuthRepositoryWithDB(tx)
 		credentials := createTestCredentials()
 
 		// run
-		_, _ = repo.CreateCredentials(credentials)
+		_, err := repo.CreateCredentials(credentials)
+		assert.NoError(t, err)
 		existing, err := repo.CreateCredentials(credentials)
 
 		// assert
@@ -72,21 +90,30 @@ func TestCreateCredentials(t *testing.T) {
 
 func TestUpdatePassword(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		repo := repository.NewAuthRepository()
+		tx := setup()
+		defer teardown(tx)
+		repo := repository.NewAuthRepositoryWithDB(tx)
 		credentials := createTestCredentials()
 
 		// run
-		created, _ := repo.CreateCredentials(credentials)
-		err := repo.UpdatePassword(created.UserID, "new_password")
-		found, _ := repo.FindByUserID(created.UserID)
+		created, err := repo.CreateCredentials(credentials)
+		assert.NoError(t, err)
+		err = repo.UpdatePassword(created.UserID, "new_password")
+		assert.NoError(t, err)
+		found, err := repo.FindByUserID(created.UserID)
 
 		// assert
 		assert.NoError(t, err)
+		assert.Equal(t, created.UserID, found.UserID)
+		assert.Equal(t, created.CreatedAt.UTC(), found.CreatedAt.UTC())
 		assert.Equal(t, "new_password", found.Password)
+		assert.True(t, found.UpdatedAt.After(found.CreatedAt))
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		repo := repository.NewAuthRepository()
+		tx := setup()
+		defer teardown(tx)
+		repo := repository.NewAuthRepositoryWithDB(tx)
 
 		err := repo.UpdatePassword("non-existent-user", "new_password")
 
@@ -96,12 +123,15 @@ func TestUpdatePassword(t *testing.T) {
 
 func TestDeleteCredentials(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		repo := repository.NewAuthRepository()
+		tx := setup()
+		defer teardown(tx)
+		repo := repository.NewAuthRepositoryWithDB(tx)
 		credentials := createTestCredentials()
 
 		// run
-		created, _ := repo.CreateCredentials(credentials)
-		err := repo.DeleteCredentials(created.UserID)
+		created, err := repo.CreateCredentials(credentials)
+		assert.NoError(t, err)
+		err = repo.DeleteCredentials(created.UserID)
 		found, err2 := repo.FindByUserID(created.UserID)
 
 		// assert
@@ -111,7 +141,9 @@ func TestDeleteCredentials(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
-		repo := repository.NewAuthRepository()
+		tx := setup()
+		defer teardown(tx)
+		repo := repository.NewAuthRepositoryWithDB(tx)
 
 		err := repo.DeleteCredentials("non-existent-user")
 
@@ -120,7 +152,9 @@ func TestDeleteCredentials(t *testing.T) {
 }
 
 func TestAuthConcurrentAccess(t *testing.T) {
-	repo := repository.NewAuthRepository()
+	tx := setup()
+	defer teardown(tx)
+	repo := repository.NewAuthRepositoryWithDB(tx)
 
 	// Test concurrent creation
 	done := make(chan bool, 10)
@@ -151,7 +185,9 @@ func TestAuthConcurrentAccess(t *testing.T) {
 
 func TestAuthEdgeCases(t *testing.T) {
 	t.Run("EmptyUserID", func(t *testing.T) {
-		repo := repository.NewAuthRepository()
+		tx := setup()
+		defer teardown(tx)
+		repo := repository.NewAuthRepositoryWithDB(tx)
 		credentials := &model.UserCredentials{
 			UserID:   "",
 			Password: "password",

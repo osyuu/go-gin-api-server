@@ -47,13 +47,7 @@ func (s *authServiceImpl) Register(req *model.RegisterRequest) (*model.TokenResp
 	}
 
 	// 2. create user
-	user := &model.User{
-		Name:      req.Name,
-		BirthDate: req.BirthDate,
-		IsActive:  true,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
+	user := model.CreateUser(req.Name, req.Username, req.Email, req.BirthDate)
 
 	if req.Username != "" {
 		user.Username = req.Username
@@ -177,7 +171,7 @@ func (s *authServiceImpl) ValidateToken(tokenString string) (*model.Claims, erro
 
 // isUnder13 檢查用戶是否未滿13歲
 func (s *authServiceImpl) isUnder13(birthDate time.Time) bool {
-	now := time.Now()
+	now := time.Now().UTC()
 	age := now.Year() - birthDate.Year()
 
 	// 如果還沒到生日，年齡減1
