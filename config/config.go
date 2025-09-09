@@ -26,7 +26,6 @@ type DatabaseConfig struct {
 	Password string
 	DBName   string
 	SSLMode  string
-	TimeZone string
 }
 
 var AppConfig *Config
@@ -48,10 +47,31 @@ func LoadConfig() *Config {
 			Password: getEnv("DB_PASSWORD", "password"),
 			DBName:   getEnv("DB_NAME", "gin_api_server"),
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
-			TimeZone: getEnv("DB_TIMEZONE", "UTC"),
 		},
 	}
 	return AppConfig
+}
+
+// LoadTestConfig 載入測試專用配置
+func LoadTestConfig() *Config {
+	return &Config{
+		Env:      "test",
+		Port:     "8080",
+		LogLevel: "error", // 測試時減少日誌輸出
+		JWT: JWTConfig{
+			Secret:                 "test-secret-key",
+			AccessTokenExpiration:  15 * time.Minute,
+			RefreshTokenExpiration: 7 * 24 * time.Hour,
+		},
+		Database: DatabaseConfig{
+			Host:     getEnv("TEST_DB_HOST", "localhost"),
+			Port:     getEnv("TEST_DB_PORT", "5432"),
+			User:     getEnv("TEST_DB_USER", "postgres"),
+			Password: getEnv("TEST_DB_PASSWORD", "password"),
+			DBName:   getEnv("TEST_DB_NAME", "gin_api_server_test"), // 測試專用資料庫
+			SSLMode:  getEnv("TEST_DB_SSLMODE", "disable"),
+		},
+	}
 }
 
 func getEnv(key, fallback string) string {

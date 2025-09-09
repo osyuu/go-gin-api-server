@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"time"
 
 	"go-gin-api-server/config"
 	"go-gin-api-server/internal/model"
@@ -18,12 +19,15 @@ func InitDatabase(cfg config.DatabaseConfig) error {
 
 	// 構建 DSN (Data Source Name)
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s timezone=%s",
-		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode, cfg.TimeZone)
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode, "UTC")
 
 	// 配置 GORM
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.NewGormLogger(),
+		NowFunc: func() time.Time {
+			return time.Now().UTC()
+		},
 	})
 
 	if err != nil {
