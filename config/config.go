@@ -31,8 +31,16 @@ type DatabaseConfig struct {
 var AppConfig *Config
 
 func LoadConfig() *Config {
+	env := getEnv("APP_ENV", "development")
+
+	// 如果是測試環境，直接使用 LoadTestConfig
+	if env == "test" {
+		return LoadTestConfig()
+	}
+
+	// 開發和生產環境配置
 	AppConfig = &Config{
-		Env:      getEnv("APP_ENV", "development"),
+		Env:      env,
 		Port:     getEnv("PORT", "8080"),
 		LogLevel: getEnv("LOG_LEVEL", "debug"),
 		JWT: JWTConfig{
