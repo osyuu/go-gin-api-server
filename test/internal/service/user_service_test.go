@@ -22,10 +22,12 @@ func setupTestUserService() (*mockRepository.UserRepositoryMock, service.UserSer
 
 func createTestUser() *model.User {
 	birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	username := "mock_user"
+	email := "mock_user@test.com"
 	return model.CreateUser(
 		"Mock User",
-		"mock_user",
-		"mock_user@test.com",
+		&username,
+		&email,
 		&birthDate,
 	)
 }
@@ -75,7 +77,8 @@ func TestCreateUser(t *testing.T) {
 	t.Run("ErrorReservedUsername", func(t *testing.T) {
 		repo, service := setupTestUserService()
 		expected := createTestUser()
-		expected.Username = "administrator" // reserved username
+		reservedUsername := "administrator" // reserved username
+		expected.Username = &reservedUsername
 
 		// run
 		created, err := service.CreateUser(
@@ -171,9 +174,9 @@ func TestGetUserByUsername(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		repo, mockService := setupTestUserService()
 		expected := createTestUser()
-		repo.On("FindByUsername", expected.Username).Return(expected, nil)
+		repo.On("FindByUsername", *expected.Username).Return(expected, nil)
 
-		user, err := mockService.GetUserByUsername(expected.Username)
+		user, err := mockService.GetUserByUsername(*expected.Username)
 
 		assert.NoError(t, err)
 		assert.Equal(t, expected, user)
@@ -185,9 +188,9 @@ func TestGetUserByEmail(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		repo, mockService := setupTestUserService()
 		expected := createTestUser()
-		repo.On("FindByEmail", expected.Email).Return(expected, nil)
+		repo.On("FindByEmail", *expected.Email).Return(expected, nil)
 
-		user, err := mockService.GetUserByEmail(expected.Email)
+		user, err := mockService.GetUserByEmail(*expected.Email)
 
 		assert.NoError(t, err)
 		assert.Equal(t, expected, user)

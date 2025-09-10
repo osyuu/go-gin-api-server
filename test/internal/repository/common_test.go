@@ -3,12 +3,15 @@ package repository
 import (
 	"go-gin-api-server/config"
 	"go-gin-api-server/internal/database"
-	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/logger"
 	"os"
 	"testing"
 
 	"gorm.io/gorm"
+)
+
+const (
+	NonExistentUserID = "550e8400-e29b-41d4-a716-446655440000"
 )
 
 func TestMain(m *testing.M) {
@@ -21,11 +24,13 @@ func TestMain(m *testing.M) {
 		panic("Failed to initialize test database: " + err.Error())
 	}
 
-	// Run database migration
-	db := database.GetDB()
-	if err := db.AutoMigrate(&model.User{}, &model.UserCredentials{}); err != nil {
-		panic("Failed to migrate test database: " + err.Error())
-	}
+	// Run database migration using golang-migrate
+	// Note: Test database should be set up with proper migrations before running tests
+	// For now, we'll skip AutoMigrate since we're using golang-migrate
+	// db := database.GetDB()
+	// if err := db.AutoMigrate(&model.User{}, &model.UserCredentials{}); err != nil {
+	// 	panic("Failed to migrate test database: " + err.Error())
+	// }
 
 	// Run tests
 	code := m.Run()

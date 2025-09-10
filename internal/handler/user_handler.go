@@ -92,10 +92,18 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	if err := BindJSON(c, &req); err != nil {
 		return
 	}
+	var username, email *string
+	if req.Username != "" {
+		username = &req.Username
+	}
+	if req.Email != "" {
+		email = &req.Email
+	}
+
 	createdUser, err := h.service.CreateUser(
 		req.Name,
-		req.Username,
-		req.Email,
+		username,
+		email,
 		req.BirthDate,
 	)
 	if err != nil {

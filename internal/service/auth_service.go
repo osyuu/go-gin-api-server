@@ -47,14 +47,15 @@ func (s *authServiceImpl) Register(req *model.RegisterRequest) (*model.TokenResp
 	}
 
 	// 2. create user
-	user := model.CreateUser(req.Name, req.Username, req.Email, req.BirthDate)
-
+	var username, email *string
 	if req.Username != "" {
-		user.Username = req.Username
+		username = &req.Username
 	}
 	if req.Email != "" {
-		user.Email = req.Email
+		email = &req.Email
 	}
+
+	user := model.CreateUser(req.Name, username, email, req.BirthDate)
 
 	user, err := s.userRepo.Create(user)
 	if err != nil {

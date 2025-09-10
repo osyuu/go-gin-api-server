@@ -4,6 +4,7 @@ import (
 	"go-gin-api-server/internal/database"
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/apperrors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,8 +40,23 @@ func NewUserRepositoryWithDB(db *gorm.DB) UserRepository {
 func (r *userRepositoryImpl) Create(user *model.User) (*model.User, error) {
 	// check if username or email already exists
 	var existingUser model.User
-	if err := r.db.Where("username = ? OR email = ?", user.Username, user.Email).First(&existingUser).Error; err == nil {
-		return nil, apperrors.ErrUserExists
+	var conditions []string
+	var args []interface{}
+
+	if user.Username != nil {
+		conditions = append(conditions, "username = ?")
+		args = append(args, *user.Username)
+	}
+	if user.Email != nil {
+		conditions = append(conditions, "email = ?")
+		args = append(args, *user.Email)
+	}
+
+	if len(conditions) > 0 {
+		query := strings.Join(conditions, " OR ")
+		if err := r.db.Where(query, args...).First(&existingUser).Error; err == nil {
+			return nil, apperrors.ErrUserExists
+		}
 	}
 
 	// generate UUID as UserID

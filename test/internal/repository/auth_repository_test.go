@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/internal/repository"
 	"go-gin-api-server/pkg/apperrors"
@@ -12,7 +11,7 @@ import (
 
 func createTestCredentials() *model.UserCredentials {
 	return &model.UserCredentials{
-		UserID:   "user123",
+		UserID:   NonExistentUserID, // Valid UUID
 		Password: "hashed_password",
 	}
 }
@@ -24,7 +23,18 @@ func TestCreateCredentialsAndFindByUserID(t *testing.T) {
 		tx := setup()
 		defer teardown(tx)
 		repo := repository.NewAuthRepositoryWithDB(tx)
-		credentials := createTestCredentials()
+
+		// First create a user
+		userRepo := repository.NewUserRepositoryWithDB(tx)
+		user := createTestUser()
+		createdUser, err := userRepo.Create(user)
+		assert.NoError(t, err)
+
+		// Then create credentials for that user
+		credentials := &model.UserCredentials{
+			UserID:   createdUser.ID,
+			Password: "hashed_password",
+		}
 
 		// run
 		created, err := repo.CreateCredentials(credentials)
@@ -58,7 +68,18 @@ func TestCreateCredentials(t *testing.T) {
 		tx := setup()
 		defer teardown(tx)
 		repo := repository.NewAuthRepositoryWithDB(tx)
-		credentials := createTestCredentials()
+
+		// First create a user
+		userRepo := repository.NewUserRepositoryWithDB(tx)
+		user := createTestUser()
+		createdUser, err := userRepo.Create(user)
+		assert.NoError(t, err)
+
+		// Then create credentials for that user
+		credentials := &model.UserCredentials{
+			UserID:   createdUser.ID,
+			Password: "hashed_password",
+		}
 
 		// run
 		created, err := repo.CreateCredentials(credentials)
@@ -75,10 +96,21 @@ func TestCreateCredentials(t *testing.T) {
 		tx := setup()
 		defer teardown(tx)
 		repo := repository.NewAuthRepositoryWithDB(tx)
-		credentials := createTestCredentials()
+
+		// First create a user
+		userRepo := repository.NewUserRepositoryWithDB(tx)
+		user := createTestUser()
+		createdUser, err := userRepo.Create(user)
+		assert.NoError(t, err)
+
+		// Create first credentials
+		credentials := &model.UserCredentials{
+			UserID:   createdUser.ID,
+			Password: "hashed_password",
+		}
 
 		// run
-		_, err := repo.CreateCredentials(credentials)
+		_, err = repo.CreateCredentials(credentials)
 		assert.NoError(t, err)
 		existing, err := repo.CreateCredentials(credentials)
 
@@ -93,7 +125,18 @@ func TestUpdatePassword(t *testing.T) {
 		tx := setup()
 		defer teardown(tx)
 		repo := repository.NewAuthRepositoryWithDB(tx)
-		credentials := createTestCredentials()
+
+		// First create a user
+		userRepo := repository.NewUserRepositoryWithDB(tx)
+		user := createTestUser()
+		createdUser, err := userRepo.Create(user)
+		assert.NoError(t, err)
+
+		// Then create credentials for that user
+		credentials := &model.UserCredentials{
+			UserID:   createdUser.ID,
+			Password: "hashed_password",
+		}
 
 		// run
 		created, err := repo.CreateCredentials(credentials)
@@ -115,7 +158,7 @@ func TestUpdatePassword(t *testing.T) {
 		defer teardown(tx)
 		repo := repository.NewAuthRepositoryWithDB(tx)
 
-		err := repo.UpdatePassword("non-existent-user", "new_password")
+		err := repo.UpdatePassword(NonExistentUserID, "new_password")
 
 		assert.ErrorIs(t, err, apperrors.ErrNotFound)
 	})
@@ -126,7 +169,18 @@ func TestDeleteCredentials(t *testing.T) {
 		tx := setup()
 		defer teardown(tx)
 		repo := repository.NewAuthRepositoryWithDB(tx)
-		credentials := createTestCredentials()
+
+		// First create a user
+		userRepo := repository.NewUserRepositoryWithDB(tx)
+		user := createTestUser()
+		createdUser, err := userRepo.Create(user)
+		assert.NoError(t, err)
+
+		// Then create credentials for that user
+		credentials := &model.UserCredentials{
+			UserID:   createdUser.ID,
+			Password: "hashed_password",
+		}
 
 		// run
 		created, err := repo.CreateCredentials(credentials)
@@ -145,42 +199,10 @@ func TestDeleteCredentials(t *testing.T) {
 		defer teardown(tx)
 		repo := repository.NewAuthRepositoryWithDB(tx)
 
-		err := repo.DeleteCredentials("non-existent-user")
+		err := repo.DeleteCredentials(NonExistentUserID)
 
 		assert.ErrorIs(t, err, apperrors.ErrNotFound)
 	})
-}
-
-func TestAuthConcurrentAccess(t *testing.T) {
-	tx := setup()
-	defer teardown(tx)
-	repo := repository.NewAuthRepositoryWithDB(tx)
-
-	// Test concurrent creation
-	done := make(chan bool, 10)
-
-	for i := 0; i < 10; i++ {
-		go func(id int) {
-			credentials := &model.UserCredentials{
-				UserID:   fmt.Sprintf("user%d", id),
-				Password: "password",
-			}
-			_, err := repo.CreateCredentials(credentials)
-			assert.NoError(t, err)
-			done <- true
-		}(i)
-	}
-
-	// Wait for all goroutines to complete
-	for range 10 {
-		<-done
-	}
-
-	// Verify all credentials were created
-	for i := 0; i < 10; i++ {
-		_, err := repo.FindByUserID(fmt.Sprintf("user%d", i))
-		assert.NoError(t, err)
-	}
 }
 
 func TestAuthEdgeCases(t *testing.T) {

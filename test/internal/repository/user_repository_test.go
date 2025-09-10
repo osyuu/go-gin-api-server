@@ -12,10 +12,12 @@ import (
 
 func createTestUser() *model.User {
 	birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	username := "test"
+	email := "test@test.com"
 	return model.CreateUser(
 		"test",
-		"test",
-		"test@test.com",
+		&username,
+		&email,
 		&birthDate,
 	)
 }
@@ -56,7 +58,7 @@ func TestCreateUserAndFindByID(t *testing.T) {
 
 		repo := repository.NewUserRepositoryWithDB(tx)
 
-		found, err := repo.FindByID("non-existent-id")
+		found, err := repo.FindByID(NonExistentUserID)
 
 		assert.ErrorIs(t, err, apperrors.ErrNotFound)
 		assert.Nil(t, found)
@@ -73,7 +75,7 @@ func TestCreateUserAndFindByUsername(t *testing.T) {
 
 		// run
 		created, _ := repo.Create(user)
-		found, err := repo.FindByUsername(created.Username)
+		found, err := repo.FindByUsername(*created.Username)
 
 		// assert
 		assert.NoError(t, err)
@@ -113,7 +115,7 @@ func TestCreateUserAndFindByEmail(t *testing.T) {
 
 		// run
 		created, _ := repo.Create(user)
-		found, err := repo.FindByEmail(created.Email)
+		found, err := repo.FindByEmail(*created.Email)
 
 		// assert
 		assert.NoError(t, err)
@@ -154,10 +156,12 @@ func TestUpdateUser(t *testing.T) {
 		// run
 		created, _ := repo.Create(user)
 		birthDate := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
+		updatedUsername := "updated"
+		updatedEmail := "updated@test.com"
 		updated := &model.User{
 			Name:      "updated",
-			Username:  "updated",
-			Email:     "updated@test.com",
+			Username:  &updatedUsername,
+			Email:     &updatedEmail,
 			BirthDate: &birthDate,
 		}
 		found, err := repo.Update(created.ID, updated)
@@ -184,7 +188,7 @@ func TestUpdateUser(t *testing.T) {
 		repo := repository.NewUserRepositoryWithDB(tx)
 
 		updated := &model.User{Name: "updated"}
-		found, err := repo.Update("non-existent-id", updated)
+		found, err := repo.Update(NonExistentUserID, updated)
 
 		assert.ErrorIs(t, err, apperrors.ErrNotFound)
 		assert.Nil(t, found)
@@ -259,7 +263,7 @@ func TestDeleteUser(t *testing.T) {
 
 		repo := repository.NewUserRepositoryWithDB(tx)
 
-		err := repo.Delete("non-existent-id")
+		err := repo.Delete(NonExistentUserID)
 
 		assert.ErrorIs(t, err, apperrors.ErrNotFound)
 	})
