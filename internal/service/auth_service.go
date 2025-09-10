@@ -172,7 +172,7 @@ func (s *authServiceImpl) ValidateToken(tokenString string) (*model.Claims, erro
 
 // isUnder13 檢查用戶是否未滿13歲
 func (s *authServiceImpl) isUnder13(birthDate time.Time) bool {
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	age := now.Year() - birthDate.Year()
 
 	// 如果還沒到生日，年齡減1

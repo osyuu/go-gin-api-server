@@ -29,7 +29,7 @@ func (j *JWTManager) GenerateToken(user *model.User) (*model.TokenResponse, erro
 	}
 
 	// generate refresh token
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	refreshExpiresAt := now.Add(j.tokenDuration * 24 * 7) // 7 days
 	refreshClaims := &model.Claims{
 		UserID: user.ID,
@@ -58,7 +58,7 @@ func (j *JWTManager) GenerateToken(user *model.User) (*model.TokenResponse, erro
 
 // GenerateAccessTokenOnly
 func (j *JWTManager) GenerateAccessToken(user *model.User) (string, error) {
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	expiresAt := now.Add(j.tokenDuration)
 
 	claims := &model.Claims{

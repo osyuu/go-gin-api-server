@@ -25,7 +25,7 @@ func InitDatabase(cfg config.DatabaseConfig) error {
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.NewGormLogger(),
 		NowFunc: func() time.Time {
-			return time.Now().UTC()
+			return time.Now().UTC().Truncate(time.Microsecond)
 		},
 	})
 

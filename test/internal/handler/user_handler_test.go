@@ -24,6 +24,7 @@ import (
 const (
 	username          = "test_user"
 	email             = "test_user@test.com"
+	testUserID        = "test-id"
 	NonExistentUserID = "550e8400-e29b-41d4-a716-446655440000"
 )
 
@@ -104,9 +105,7 @@ func TestCreateUser(t *testing.T) {
 			&email,
 			&birthDate,
 		)
-		expectedUser.ID = "test-id"
-		expectedUser.CreatedAt = time.Now().UTC()
-		expectedUser.UpdatedAt = time.Now().UTC()
+		expectedUser.ID = testUserID
 
 		// Mock 期望與實際請求參數匹配
 		mockService.On("CreateUser",
@@ -274,9 +273,9 @@ func TestGetUserByID(t *testing.T) {
 		r := setupUserRouter(userHandler.GetUserByID)
 
 		expectedUser := createTestUser()
-		expectedUser.ID = "test-id"
+		expectedUser.ID = testUserID
 
-		mockService.On("GetUserByID", "test-id").Return(expectedUser, nil)
+		mockService.On("GetUserByID", testUserID).Return(expectedUser, nil)
 
 		req, _ := http.NewRequest(http.MethodGet, "/users/test-id", nil)
 		response := httptest.NewRecorder()
@@ -410,19 +409,16 @@ func TestUpdateUserProfile(t *testing.T) {
 		birthDate := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
 		testUsername := username
 		testEmail := email
-		expectedUser := &model.User{
-			ID:        "test-id",
-			Name:      "Updated User",
-			Username:  &testUsername,
-			Email:     &testEmail,
-			BirthDate: &birthDate,
-			IsActive:  true,
-			CreatedAt: time.Now().UTC(),
-			UpdatedAt: time.Now().UTC(),
-		}
+		expectedUser := model.CreateUser(
+			"Updated User",
+			&testUsername,
+			&testEmail,
+			&birthDate,
+		)
+		expectedUser.ID = testUserID
 
 		mockService.On("UpdateUserProfile",
-			"test-id",
+			testUserID,
 			"Updated User",
 			&birthDate,
 		).Return(expectedUser, nil)
@@ -495,7 +491,7 @@ func TestUpdateUserProfile(t *testing.T) {
 		}
 
 		// Mock Service 返回 ErrUserUnderAge
-		mockService.On("UpdateUserProfile", "test-id", "Updated User", &underAgeBirthDate).Return(nil, apperrors.ErrUserUnderAge)
+		mockService.On("UpdateUserProfile", testUserID, "Updated User", &underAgeBirthDate).Return(nil, apperrors.ErrUserUnderAge)
 
 		req := createTypedJSONRequest(http.MethodPatch, "/users/test-id", requestData)
 		response := httptest.NewRecorder()
@@ -513,7 +509,7 @@ func TestActivateUser(t *testing.T) {
 		r := setupUserRouter(userHandler.ActivateUser)
 
 		// Mock Service 返回成功
-		mockService.On("ActivateUser", "test-id").Return(nil)
+		mockService.On("ActivateUser", testUserID).Return(nil)
 
 		req, _ := http.NewRequest(http.MethodPatch, "/users/test-id/activate", nil)
 		response := httptest.NewRecorder()
@@ -547,7 +543,7 @@ func TestDeactivateUser(t *testing.T) {
 		r := setupUserRouter(userHandler.DeactivateUser)
 
 		// Mock Service 返回成功
-		mockService.On("DeactivateUser", "test-id").Return(nil)
+		mockService.On("DeactivateUser", testUserID).Return(nil)
 
 		req, _ := http.NewRequest(http.MethodPatch, "/users/test-id/deactivate", nil)
 		response := httptest.NewRecorder()
@@ -581,7 +577,7 @@ func TestDeleteUser(t *testing.T) {
 		r := setupUserRouter(userHandler.DeleteUser)
 
 		// Mock Service 返回成功
-		mockService.On("DeleteUser", "test-id").Return(nil)
+		mockService.On("DeleteUser", testUserID).Return(nil)
 
 		req, _ := http.NewRequest(http.MethodDelete, "/users/test-id", nil)
 		response := httptest.NewRecorder()

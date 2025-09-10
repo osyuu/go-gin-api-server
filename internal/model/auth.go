@@ -51,7 +51,7 @@ type UserCredentials struct {
 
 // GORM Hooks
 func (uc *UserCredentials) BeforeCreate(tx *gorm.DB) error {
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	if uc.CreatedAt.IsZero() {
 		uc.CreatedAt = now
 	}
@@ -62,6 +62,6 @@ func (uc *UserCredentials) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (uc *UserCredentials) BeforeUpdate(tx *gorm.DB) error {
-	uc.UpdatedAt = time.Now().UTC()
+	uc.UpdatedAt = time.Now().UTC().Truncate(time.Microsecond)
 	return nil
 }

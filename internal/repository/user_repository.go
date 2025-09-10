@@ -5,9 +5,7 @@ import (
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/apperrors"
 	"strings"
-	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -57,18 +55,6 @@ func (r *userRepositoryImpl) Create(user *model.User) (*model.User, error) {
 		if err := r.db.Where(query, args...).First(&existingUser).Error; err == nil {
 			return nil, apperrors.ErrUserExists
 		}
-	}
-
-	// generate UUID as UserID
-	if user.ID == "" {
-		user.ID = uuid.New().String()
-	}
-
-	if user.CreatedAt.IsZero() {
-		user.CreatedAt = time.Now().UTC()
-	}
-	if user.UpdatedAt.IsZero() {
-		user.UpdatedAt = user.CreatedAt
 	}
 
 	// create user in database
