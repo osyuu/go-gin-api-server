@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 )
 
 // LoginRequest 登录请求
@@ -38,6 +39,29 @@ type Claims struct {
 
 // UserCredentials 用戶認證憑證
 type UserCredentials struct {
-	UserID   string `json:"user_id"`
-	Password string `json:"-"` // 哈希後的密碼，不在JSON中顯示
+	ID        string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	UserID    string    `gorm:"uniqueIndex;not null;type:uuid" json:"user_id"`
+	Password  string    `gorm:"not null" json:"-"` // 哈希後的密碼，不在JSON中顯示
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// related fields
+	User *User `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
+}
+
+// GORM Hooks
+func (uc *UserCredentials) BeforeCreate(tx *gorm.DB) error {
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	if uc.CreatedAt.IsZero() {
+		uc.CreatedAt = now
+	}
+	if uc.UpdatedAt.IsZero() {
+		uc.UpdatedAt = now
+	}
+	return nil
+}
+
+func (uc *UserCredentials) BeforeUpdate(tx *gorm.DB) error {
+	uc.UpdatedAt = time.Now().UTC().Truncate(time.Microsecond)
+	return nil
 }

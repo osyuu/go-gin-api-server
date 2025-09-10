@@ -1,9 +1,11 @@
 package repository
 
 import (
+	"go-gin-api-server/internal/database"
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/apperrors"
-	"sync"
+
+	"gorm.io/gorm"
 )
 
 type AuthRepository interface {
@@ -14,67 +16,69 @@ type AuthRepository interface {
 }
 
 type authRepositoryImpl struct {
-	mutex       sync.RWMutex
-	credentials map[string]*model.UserCredentials
+	db *gorm.DB
 }
 
 func NewAuthRepository() AuthRepository {
 	return &authRepositoryImpl{
-		credentials: make(map[string]*model.UserCredentials),
+		db: database.GetDB(),
+	}
+}
+
+func NewAuthRepositoryWithDB(db *gorm.DB) AuthRepository {
+	return &authRepositoryImpl{
+		db: db,
 	}
 }
 
 func (r *authRepositoryImpl) CreateCredentials(credentials *model.UserCredentials) (*model.UserCredentials, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
 	// Validate input
 	if credentials.UserID == "" {
 		return nil, apperrors.ErrValidation
 	}
 
-	if _, exists := r.credentials[credentials.UserID]; exists {
+	var existingCredentials model.UserCredentials
+	if err := r.db.Where("user_id = ?", credentials.UserID).First(&existingCredentials).Error; err == nil {
 		return nil, apperrors.ErrUserExists
 	}
 
-	r.credentials[credentials.UserID] = credentials
+	if err := r.db.Create(credentials).Error; err != nil {
+		return nil, err
+	}
+
 	return credentials, nil
 }
 
 func (r *authRepositoryImpl) FindByUserID(userID string) (*model.UserCredentials, error) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
-	credentials, exists := r.credentials[userID]
-	if !exists {
+	var credentials model.UserCredentials
+	if err := r.db.Where("user_id = ?", userID).First(&credentials).Error; err != nil {
 		return nil, apperrors.ErrNotFound
 	}
 
-	return credentials, nil
+	return &credentials, nil
 }
 
 func (r *authRepositoryImpl) UpdatePassword(userID string, hashedPassword string) error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	result := r.db.Model(&model.UserCredentials{}).
+		Where("user_id = ?", userID).
+		Updates(map[string]interface{}{"password": hashedPassword})
 
-	credentials, exists := r.credentials[userID]
-	if !exists {
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
 		return apperrors.ErrNotFound
 	}
-
-	credentials.Password = hashedPassword
 	return nil
 }
 
 func (r *authRepositoryImpl) DeleteCredentials(userID string) error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	_, exists := r.credentials[userID]
-	if !exists {
+	result := r.db.Where("user_id = ?", userID).Delete(&model.UserCredentials{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
 		return apperrors.ErrNotFound
 	}
-
-	delete(r.credentials, userID)
 	return nil
 }

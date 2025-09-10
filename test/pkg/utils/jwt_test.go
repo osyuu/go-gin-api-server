@@ -10,13 +10,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testUsername = "testuser"
+	testEmail    = "test@example.com"
+)
+
 func TestJWTManager_GenerateToken(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
+		username := testUsername
+		email := testEmail
 		user := &model.User{
 			ID:       "user-123",
-			Username: "testuser",
-			Email:    "test@example.com",
+			Username: &username,
+			Email:    &email,
 		}
 
 		tokenResponse, err := jwtMgr.GenerateToken(user)
@@ -48,10 +55,12 @@ func TestJWTManager_GenerateToken(t *testing.T) {
 func TestJWTManager_GenerateAccessToken(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
+		username := testUsername
+		email := testEmail
 		user := &model.User{
 			ID:       "user-123",
-			Username: "testuser",
-			Email:    "test@example.com",
+			Username: &username,
+			Email:    &email,
 		}
 
 		accessToken, err := jwtMgr.GenerateAccessToken(user)
@@ -77,10 +86,12 @@ func TestJWTManager_GenerateAccessToken(t *testing.T) {
 func TestJWTManager_ValidateToken(t *testing.T) {
 	t.Run("ValidToken", func(t *testing.T) {
 		jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
+		username := testUsername
+		email := testEmail
 		user := &model.User{
 			ID:       "user-123",
-			Username: "testuser",
-			Email:    "test@example.com",
+			Username: &username,
+			Email:    &email,
 		}
 
 		// Generate a valid token
@@ -185,10 +196,12 @@ func TestJWTManager_GetTokenDuration(t *testing.T) {
 func TestJWTManager_TokenConsistency(t *testing.T) {
 	t.Run("GenerateTokenAndValidate", func(t *testing.T) {
 		jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
+		username := testUsername
+		email := testEmail
 		user := &model.User{
 			ID:       "user-123",
-			Username: "testuser",
-			Email:    "test@example.com",
+			Username: &username,
+			Email:    &email,
 		}
 
 		// Generate token response
@@ -211,10 +224,12 @@ func TestJWTManager_TokenConsistency(t *testing.T) {
 
 	t.Run("GenerateAccessTokenAndValidate", func(t *testing.T) {
 		jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
+		username := testUsername
+		email := testEmail
 		user := &model.User{
 			ID:       "user-123",
-			Username: "testuser",
-			Email:    "test@example.com",
+			Username: &username,
+			Email:    &email,
 		}
 
 		// Generate access token

@@ -8,7 +8,7 @@ import (
 )
 
 type UserService interface {
-	CreateUser(name, username, email string, birthDate *time.Time) (*model.User, error)
+	CreateUser(name string, username, email *string, birthDate *time.Time) (*model.User, error)
 	GetUserByID(id string) (*model.User, error)
 	GetUserByUsername(username string) (*model.User, error)
 	GetUserByEmail(email string) (*model.User, error)
@@ -40,7 +40,7 @@ func (s *userServiceImpl) GetUserByEmail(email string) (*model.User, error) {
 	return s.repo.FindByEmail(email)
 }
 
-func (s *userServiceImpl) CreateUser(name, username, email string, birthDate *time.Time) (*model.User, error) {
+func (s *userServiceImpl) CreateUser(name string, username, email *string, birthDate *time.Time) (*model.User, error) {
 	user := model.CreateUser(name, username, email, birthDate)
 
 	// 業務邏輯驗證：年齡限制（13歲以上）
@@ -51,7 +51,7 @@ func (s *userServiceImpl) CreateUser(name, username, email string, birthDate *ti
 	}
 
 	// 業務邏輯驗證：保留用戶名檢查
-	if s.isReservedUsername(username) {
+	if username != nil && s.isReservedUsername(*username) {
 		return nil, apperrors.ErrValidation // 可以定義更具體的錯誤
 	}
 
@@ -94,7 +94,7 @@ func (s *userServiceImpl) DeleteUser(userID string) error {
 
 // isUnder13 檢查用戶是否未滿13歲
 func (s *userServiceImpl) isUnder13(birthDate time.Time) bool {
-	now := time.Now()
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	age := now.Year() - birthDate.Year()
 
 	// 如果還沒到生日，年齡減1

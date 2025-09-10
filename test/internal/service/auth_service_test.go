@@ -6,11 +6,19 @@ import (
 	"go-gin-api-server/pkg/apperrors"
 	"go-gin-api-server/pkg/utils"
 	mockRepository "go-gin-api-server/test/mocks/repository"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+)
+
+// Test constants
+const (
+	testUserName1 = "User 1"
+	testUserName2 = "User 2"
+	testUserID1   = "user1-id"
 )
 
 const (
@@ -335,5 +343,250 @@ func TestAuthService_ValidateToken(t *testing.T) {
 		// assert
 		assert.ErrorIs(t, err, apperrors.ErrInvalidToken)
 		assert.Nil(t, claims)
+	})
+}
+
+// TestAuthService_ConcurrentRegistration 測試併發註冊場景
+func TestAuthService_ConcurrentRegistration(t *testing.T) {
+	t.Run("ConcurrentRegistrationWithSameUsername", func(t *testing.T) {
+		// 測試多個用戶同時註冊相同 username 的情況
+		mockUserRepo, mockAuthRepo, _, authService := setupTestAuthService()
+
+		// 準備測試數據
+		birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		req1 := &model.RegisterRequest{
+			Name:      "User 1",
+			Username:  "testuser",
+			Email:     "user1@example.com",
+			BirthDate: &birthDate,
+			Password:  "password123",
+		}
+		req2 := &model.RegisterRequest{
+			Name:      "User 2",
+			Username:  "testuser", // 相同的 username
+			Email:     "user2@example.com",
+			BirthDate: &birthDate,
+			Password:  "password123",
+		}
+
+		// 設置 mock：第一個請求成功，第二個請求失敗（用戶已存在）
+		user1 := &model.User{
+			ID:       "user1-id",
+			Name:     "User 1",
+			Username: &req1.Username,
+			Email:    &req1.Email,
+			IsActive: true,
+		}
+
+		// 第一個請求的 mock 設置
+		mockUserRepo.On("Create", mock.MatchedBy(func(u *model.User) bool {
+			return u.Name == testUserName1
+		})).Return(user1, nil).Once()
+
+		mockAuthRepo.On("CreateCredentials", mock.MatchedBy(func(c *model.UserCredentials) bool {
+			return c.UserID == testUserID1
+		})).Return(&model.UserCredentials{
+			ID:       "cred1-id",
+			UserID:   testUserID1,
+			Password: "hashed_password",
+		}, nil).Once()
+
+		// 第二個請求的 mock 設置（用戶已存在）
+		mockUserRepo.On("Create", mock.MatchedBy(func(u *model.User) bool {
+			return u.Name == testUserName2
+		})).Return(nil, apperrors.ErrUserExists).Once()
+
+		// 併發執行
+		var wg sync.WaitGroup
+		results := make([]*model.TokenResponse, 2)
+		errors := make([]error, 2)
+
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			results[0], errors[0] = authService.Register(req1)
+		}()
+		go func() {
+			defer wg.Done()
+			results[1], errors[1] = authService.Register(req2)
+		}()
+
+		wg.Wait()
+
+		// 驗證結果
+		// 第一個請求應該成功
+		assert.NoError(t, errors[0])
+		assert.NotNil(t, results[0])
+		assert.NotEmpty(t, results[0].AccessToken)
+		assert.NotEmpty(t, results[0].RefreshToken)
+
+		// 第二個請求應該失敗（用戶已存在）
+		assert.ErrorIs(t, errors[1], apperrors.ErrUserExists)
+		assert.Nil(t, results[1])
+
+		// 驗證 mock 調用
+		mockUserRepo.AssertExpectations(t)
+		mockAuthRepo.AssertExpectations(t)
+	})
+
+	t.Run("ConcurrentRegistrationWithSameEmail", func(t *testing.T) {
+		// 測試多個用戶同時註冊相同 email 的情況
+		mockUserRepo, mockAuthRepo, _, authService := setupTestAuthService()
+
+		birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		req1 := &model.RegisterRequest{
+			Name:      "User 1",
+			Username:  "user1",
+			Email:     "test@example.com", // 相同的 email
+			BirthDate: &birthDate,
+			Password:  "password123",
+		}
+		req2 := &model.RegisterRequest{
+			Name:      "User 2",
+			Username:  "user2",
+			Email:     "test@example.com", // 相同的 email
+			BirthDate: &birthDate,
+			Password:  "password123",
+		}
+
+		user1 := &model.User{
+			ID:       "user1-id",
+			Name:     "User 1",
+			Username: &req1.Username,
+			Email:    &req1.Email,
+			IsActive: true,
+		}
+
+		// 第一個請求成功
+		mockUserRepo.On("Create", mock.MatchedBy(func(u *model.User) bool {
+			return u.Name == "User 1"
+		})).Return(user1, nil).Once()
+
+		mockAuthRepo.On("CreateCredentials", mock.MatchedBy(func(c *model.UserCredentials) bool {
+			return c.UserID == "user1-id"
+		})).Return(&model.UserCredentials{
+			ID:       "cred1-id",
+			UserID:   "user1-id",
+			Password: "hashed_password",
+		}, nil).Once()
+
+		// 第二個請求失敗（email 已存在）
+		mockUserRepo.On("Create", mock.MatchedBy(func(u *model.User) bool {
+			return u.Name == "User 2"
+		})).Return(nil, apperrors.ErrUserExists).Once()
+
+		// 併發執行
+		var wg sync.WaitGroup
+		results := make([]*model.TokenResponse, 2)
+		errors := make([]error, 2)
+
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			results[0], errors[0] = authService.Register(req1)
+		}()
+		go func() {
+			defer wg.Done()
+			results[1], errors[1] = authService.Register(req2)
+		}()
+
+		wg.Wait()
+
+		// 驗證結果
+		assert.NoError(t, errors[0])
+		assert.NotNil(t, results[0])
+		assert.ErrorIs(t, errors[1], apperrors.ErrUserExists)
+		assert.Nil(t, results[1])
+
+		mockUserRepo.AssertExpectations(t)
+		mockAuthRepo.AssertExpectations(t)
+	})
+
+	t.Run("ConcurrentRegistrationWithDifferentUsers", func(t *testing.T) {
+		// 測試多個不同用戶同時註冊（應該都成功）
+		mockUserRepo, mockAuthRepo, _, authService := setupTestAuthService()
+
+		birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		req1 := &model.RegisterRequest{
+			Name:      "User 1",
+			Username:  "user1",
+			Email:     "user1@example.com",
+			BirthDate: &birthDate,
+			Password:  "password123",
+		}
+		req2 := &model.RegisterRequest{
+			Name:      "User 2",
+			Username:  "user2",
+			Email:     "user2@example.com",
+			BirthDate: &birthDate,
+			Password:  "password123",
+		}
+
+		user1 := &model.User{
+			ID:       "user1-id",
+			Name:     "User 1",
+			Username: &req1.Username,
+			Email:    &req1.Email,
+			IsActive: true,
+		}
+		user2 := &model.User{
+			ID:       "user2-id",
+			Name:     "User 2",
+			Username: &req2.Username,
+			Email:    &req2.Email,
+			IsActive: true,
+		}
+
+		// 兩個請求都成功
+		mockUserRepo.On("Create", mock.MatchedBy(func(u *model.User) bool {
+			return u.Name == "User 1"
+		})).Return(user1, nil).Once()
+		mockUserRepo.On("Create", mock.MatchedBy(func(u *model.User) bool {
+			return u.Name == "User 2"
+		})).Return(user2, nil).Once()
+
+		mockAuthRepo.On("CreateCredentials", mock.MatchedBy(func(c *model.UserCredentials) bool {
+			return c.UserID == "user1-id"
+		})).Return(&model.UserCredentials{
+			ID:       "cred1-id",
+			UserID:   "user1-id",
+			Password: "hashed_password",
+		}, nil).Once()
+		mockAuthRepo.On("CreateCredentials", mock.MatchedBy(func(c *model.UserCredentials) bool {
+			return c.UserID == "user2-id"
+		})).Return(&model.UserCredentials{
+			ID:       "cred2-id",
+			UserID:   "user2-id",
+			Password: "hashed_password",
+		}, nil).Once()
+
+		// 併發執行
+		var wg sync.WaitGroup
+		results := make([]*model.TokenResponse, 2)
+		errors := make([]error, 2)
+
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			results[0], errors[0] = authService.Register(req1)
+		}()
+		go func() {
+			defer wg.Done()
+			results[1], errors[1] = authService.Register(req2)
+		}()
+
+		wg.Wait()
+
+		// 驗證結果：兩個請求都應該成功
+		assert.NoError(t, errors[0])
+		assert.NotNil(t, results[0])
+		assert.NoError(t, errors[1])
+		assert.NotNil(t, results[1])
+
+		// 驗證生成的 token 不同
+		assert.NotEqual(t, results[0].AccessToken, results[1].AccessToken)
+
+		mockUserRepo.AssertExpectations(t)
+		mockAuthRepo.AssertExpectations(t)
 	})
 }

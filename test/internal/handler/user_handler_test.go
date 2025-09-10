@@ -20,6 +20,14 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+// Test constants
+const (
+	username          = "test_user"
+	email             = "test_user@test.com"
+	testUserID        = "test-id"
+	NonExistentUserID = "550e8400-e29b-41d4-a716-446655440000"
+)
+
 // Helper functions
 
 func setupTestUserHandler() (*mockService.UserServiceMock, *handler.UserHandler) {
@@ -50,10 +58,12 @@ func setupUserRouter(handlerFunc gin.HandlerFunc) *gin.Engine {
 
 func createTestUser() *model.User {
 	birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	username := "mock_user"
+	email := "mock_user@test.com"
 	return model.CreateUser(
 		"Mock User",
-		"mock_user",
-		"mock_user@test.com",
+		&username,
+		&email,
 		&birthDate,
 	)
 }
@@ -87,22 +97,21 @@ func TestCreateUser(t *testing.T) {
 
 		// 創建期望的用戶數據
 		birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-		expectedUser := &model.User{
-			ID:        "test-id",
-			Name:      "Test User",
-			Username:  "test_user",
-			Email:     "test_user@test.com",
-			BirthDate: &birthDate,
-			IsActive:  true,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
+		username := username
+		email := email
+		expectedUser := model.CreateUser(
+			"Test User",
+			&username,
+			&email,
+			&birthDate,
+		)
+		expectedUser.ID = testUserID
 
 		// Mock 期望與實際請求參數匹配
 		mockService.On("CreateUser",
 			"Test User",
-			"test_user",
-			"test_user@test.com",
+			&username,
+			&email,
 			&birthDate,
 		).Return(expectedUser, nil)
 
@@ -203,10 +212,12 @@ func TestCreateUser(t *testing.T) {
 			BirthDate: &birthDate,
 		}
 
+		username := username
+		email := email
 		mockService.On("CreateUser",
 			"Test User",
-			"test_user",
-			"test_user@test.com",
+			&username,
+			&email,
 			&birthDate,
 		).Return(nil, apperrors.ErrUserExists)
 
@@ -235,10 +246,12 @@ func TestCreateUser(t *testing.T) {
 		}
 
 		// Mock Service 返回 ErrUserUnderAge
+		username := username
+		email := email
 		mockService.On("CreateUser",
 			"Test User",
-			"test_user",
-			"test_user@test.com",
+			&username,
+			&email,
 			&underAgeBirthDate,
 		).Return(nil, apperrors.ErrUserUnderAge)
 
@@ -260,9 +273,9 @@ func TestGetUserByID(t *testing.T) {
 		r := setupUserRouter(userHandler.GetUserByID)
 
 		expectedUser := createTestUser()
-		expectedUser.ID = "test-id"
+		expectedUser.ID = testUserID
 
-		mockService.On("GetUserByID", "test-id").Return(expectedUser, nil)
+		mockService.On("GetUserByID", testUserID).Return(expectedUser, nil)
 
 		req, _ := http.NewRequest(http.MethodGet, "/users/test-id", nil)
 		response := httptest.NewRecorder()
@@ -286,9 +299,9 @@ func TestGetUserByID(t *testing.T) {
 		r := setupUserRouter(userHandler.GetUserByID)
 
 		// Mock Service 返回 ErrNotFound
-		mockService.On("GetUserByID", "non-existent-id").Return(nil, apperrors.ErrNotFound)
+		mockService.On("GetUserByID", NonExistentUserID).Return(nil, apperrors.ErrNotFound)
 
-		req, _ := http.NewRequest(http.MethodGet, "/users/non-existent-id", nil)
+		req, _ := http.NewRequest(http.MethodGet, "/users/"+NonExistentUserID, nil)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
@@ -304,7 +317,8 @@ func TestGetUserByUsername(t *testing.T) {
 		r := setupUserRouter(userHandler.GetUserByUsername)
 
 		expectedUser := createTestUser()
-		expectedUser.Username = "test-username"
+		testUsername := "test-username"
+		expectedUser.Username = &testUsername
 
 		mockService.On("GetUserByUsername", "test-username").Return(expectedUser, nil)
 
@@ -348,7 +362,8 @@ func TestGetUserByEmail(t *testing.T) {
 		r := setupUserRouter(userHandler.GetUserByEmail)
 
 		expectedUser := createTestUser()
-		expectedUser.Email = "test-email"
+		testEmail := "test-email"
+		expectedUser.Email = &testEmail
 
 		mockService.On("GetUserByEmail", "test-email").Return(expectedUser, nil)
 
@@ -392,19 +407,18 @@ func TestUpdateUserProfile(t *testing.T) {
 		r := setupUserRouter(userHandler.UpdateUserProfile)
 
 		birthDate := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
-		expectedUser := &model.User{
-			ID:        "test-id",
-			Name:      "Updated User",
-			Username:  "test_user",
-			Email:     "test_user@test.com",
-			BirthDate: &birthDate,
-			IsActive:  true,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
+		testUsername := username
+		testEmail := email
+		expectedUser := model.CreateUser(
+			"Updated User",
+			&testUsername,
+			&testEmail,
+			&birthDate,
+		)
+		expectedUser.ID = testUserID
 
 		mockService.On("UpdateUserProfile",
-			"test-id",
+			testUserID,
 			"Updated User",
 			&birthDate,
 		).Return(expectedUser, nil)
@@ -434,13 +448,13 @@ func TestUpdateUserProfile(t *testing.T) {
 		r := setupUserRouter(userHandler.UpdateUserProfile)
 
 		// Mock Service 返回 ErrNotFound
-		mockService.On("UpdateUserProfile", "non-existent-id", "Updated User", mock.Anything).Return(nil, apperrors.ErrNotFound)
+		mockService.On("UpdateUserProfile", NonExistentUserID, "Updated User", mock.Anything).Return(nil, apperrors.ErrNotFound)
 
 		requestData := handler.UpdateUserProfileRequest{
 			Name: "Updated User",
 		}
 
-		req := createTypedJSONRequest(http.MethodPatch, "/users/non-existent-id", requestData)
+		req := createTypedJSONRequest(http.MethodPatch, "/users/"+NonExistentUserID, requestData)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
@@ -477,7 +491,7 @@ func TestUpdateUserProfile(t *testing.T) {
 		}
 
 		// Mock Service 返回 ErrUserUnderAge
-		mockService.On("UpdateUserProfile", "test-id", "Updated User", &underAgeBirthDate).Return(nil, apperrors.ErrUserUnderAge)
+		mockService.On("UpdateUserProfile", testUserID, "Updated User", &underAgeBirthDate).Return(nil, apperrors.ErrUserUnderAge)
 
 		req := createTypedJSONRequest(http.MethodPatch, "/users/test-id", requestData)
 		response := httptest.NewRecorder()
@@ -495,7 +509,7 @@ func TestActivateUser(t *testing.T) {
 		r := setupUserRouter(userHandler.ActivateUser)
 
 		// Mock Service 返回成功
-		mockService.On("ActivateUser", "test-id").Return(nil)
+		mockService.On("ActivateUser", testUserID).Return(nil)
 
 		req, _ := http.NewRequest(http.MethodPatch, "/users/test-id/activate", nil)
 		response := httptest.NewRecorder()
@@ -511,9 +525,9 @@ func TestActivateUser(t *testing.T) {
 		r := setupUserRouter(userHandler.ActivateUser)
 
 		// Mock Service 返回 ErrNotFound
-		mockService.On("ActivateUser", "non-existent-id").Return(apperrors.ErrNotFound)
+		mockService.On("ActivateUser", NonExistentUserID).Return(apperrors.ErrNotFound)
 
-		req, _ := http.NewRequest(http.MethodPatch, "/users/non-existent-id/activate", nil)
+		req, _ := http.NewRequest(http.MethodPatch, "/users/"+NonExistentUserID+"/activate", nil)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
@@ -529,7 +543,7 @@ func TestDeactivateUser(t *testing.T) {
 		r := setupUserRouter(userHandler.DeactivateUser)
 
 		// Mock Service 返回成功
-		mockService.On("DeactivateUser", "test-id").Return(nil)
+		mockService.On("DeactivateUser", testUserID).Return(nil)
 
 		req, _ := http.NewRequest(http.MethodPatch, "/users/test-id/deactivate", nil)
 		response := httptest.NewRecorder()
@@ -545,9 +559,9 @@ func TestDeactivateUser(t *testing.T) {
 		r := setupUserRouter(userHandler.DeactivateUser)
 
 		// Mock Service 返回 ErrNotFound
-		mockService.On("DeactivateUser", "non-existent-id").Return(apperrors.ErrNotFound)
+		mockService.On("DeactivateUser", NonExistentUserID).Return(apperrors.ErrNotFound)
 
-		req, _ := http.NewRequest(http.MethodPatch, "/users/non-existent-id/deactivate", nil)
+		req, _ := http.NewRequest(http.MethodPatch, "/users/"+NonExistentUserID+"/deactivate", nil)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
@@ -563,7 +577,7 @@ func TestDeleteUser(t *testing.T) {
 		r := setupUserRouter(userHandler.DeleteUser)
 
 		// Mock Service 返回成功
-		mockService.On("DeleteUser", "test-id").Return(nil)
+		mockService.On("DeleteUser", testUserID).Return(nil)
 
 		req, _ := http.NewRequest(http.MethodDelete, "/users/test-id", nil)
 		response := httptest.NewRecorder()
@@ -579,9 +593,9 @@ func TestDeleteUser(t *testing.T) {
 		r := setupUserRouter(userHandler.DeleteUser)
 
 		// Mock Service 返回 ErrNotFound
-		mockService.On("DeleteUser", "non-existent-id").Return(apperrors.ErrNotFound)
+		mockService.On("DeleteUser", NonExistentUserID).Return(apperrors.ErrNotFound)
 
-		req, _ := http.NewRequest(http.MethodDelete, "/users/non-existent-id", nil)
+		req, _ := http.NewRequest(http.MethodDelete, "/users/"+NonExistentUserID, nil)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 

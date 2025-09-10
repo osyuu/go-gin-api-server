@@ -16,10 +16,11 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
 
-func setupIntegrationUserRouter() *gin.Engine {
-	repo := repository.NewUserRepository()
+func setupIntegrationUserRouter(db *gorm.DB) *gin.Engine {
+	repo := repository.NewUserRepositoryWithDB(db)
 	userService := service.NewUserService(repo)
 	userHandler := handler.NewUserHandler(userService)
 	r := gin.Default()
@@ -35,9 +36,12 @@ func setupIntegrationUserRouter() *gin.Engine {
 }
 
 func TestIntegration_UserService_Success(t *testing.T) {
+	db := setup()
+	defer teardown(db)
+
 	gin.SetMode(gin.TestMode)
 
-	r := setupIntegrationUserRouter()
+	r := setupIntegrationUserRouter(db)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -80,9 +84,12 @@ func TestIntegration_UserService_Success(t *testing.T) {
 }
 
 func TestIntegration_UserService_NotFound(t *testing.T) {
+	db := setup()
+	defer teardown(db)
+
 	gin.SetMode(gin.TestMode)
 
-	r := setupIntegrationUserRouter()
+	r := setupIntegrationUserRouter(db)
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
