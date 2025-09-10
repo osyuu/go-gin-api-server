@@ -3,7 +3,6 @@ package integration
 import (
 	"go-gin-api-server/config"
 	"go-gin-api-server/internal/database"
-	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/logger"
 	"os"
 	"testing"
@@ -23,9 +22,16 @@ func TestMain(m *testing.M) {
 	}
 
 	// 運行資料庫 migration
+	// 注意：Integration 測試應該使用 golang-migrate 來管理資料庫結構
+	// 請確保在運行 integration 測試前先執行: make migrate-test-up
 	db := database.GetDB()
-	if err := db.AutoMigrate(&model.User{}, &model.UserCredentials{}); err != nil {
-		panic("Failed to migrate test database: " + err.Error())
+	// 檢查表是否存在，如果不存在則提示用戶運行 migration
+	var count int64
+	if err := db.Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'users'").Scan(&count).Error; err != nil {
+		panic("Failed to check database tables: " + err.Error())
+	}
+	if count == 0 {
+		panic("Database tables not found. Please run 'make migrate-test-up' before running integration tests.")
 	}
 
 	// 運行測試

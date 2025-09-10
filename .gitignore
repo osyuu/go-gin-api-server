@@ -65,6 +65,9 @@ logs/
 *.sqlite3
 *.sql
 
+# ignore all sql files in migrations
+!migrations/*.sql
+
 # Coverage reports
 coverage.txt
 coverage.html

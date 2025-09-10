@@ -7,19 +7,22 @@ import (
 )
 
 type User struct {
-	ID        string     `json:"id,omitempty"`
-	Name      string     `json:"name" binding:"required,min=3"`
+	ID        string     `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id,omitempty"`
+	Name      string     `gorm:"not null" json:"name" binding:"required,min=3"`
 	BirthDate *time.Time `json:"birth_date,omitempty"`
 	// auth related fields
-	Username  string    `json:"username,omitempty" binding:"omitempty,min=3,max=50,username"`
-	Email     string    `json:"email,omitempty" binding:"omitempty,email"`
-	IsActive  bool      `json:"is_active"`
+	Username  *string   `gorm:"uniqueIndex" json:"username,omitempty" binding:"omitempty,min=3,max=50,username"`
+	Email     *string   `gorm:"uniqueIndex" json:"email,omitempty" binding:"omitempty,email"`
+	IsActive  bool      `gorm:"default:true" json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// related fields
+	UserCredentials *UserCredentials `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
 }
 
 // CreateUser creates a new user with the given information
-func CreateUser(name, username, email string, birthDate *time.Time) *User {
+func CreateUser(name string, username *string, email *string, birthDate *time.Time) *User {
 	now := time.Now().UTC()
 	return &User{
 		Name:      name,
@@ -33,7 +36,7 @@ func CreateUser(name, username, email string, birthDate *time.Time) *User {
 }
 
 // UpdateUser updates user information
-func (u *User) UpdateUser(name, username, email string, birthDate *time.Time) {
+func (u *User) UpdateUser(name string, username, email *string, birthDate *time.Time) {
 	u.Name = name
 	u.Username = username
 	u.Email = email

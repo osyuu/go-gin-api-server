@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"go-gin-api-server/config"
-	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/logger"
 
 	"gorm.io/driver/postgres"
@@ -45,27 +44,6 @@ func InitDatabase(cfg config.DatabaseConfig) error {
 	}
 
 	logger.Log.Info("Database connected successfully")
-	return nil
-}
-
-// AutoMigrate 自動遷移資料庫表結構
-func AutoMigrate() error {
-	if DB == nil {
-		logger.Log.Error("Database not initialized")
-		return fmt.Errorf("database not initialized")
-	}
-
-	// 自動遷移所有模型
-	err := DB.AutoMigrate(
-		&model.User{},
-		&model.UserCredentials{},
-	)
-
-	if err != nil {
-		return err
-	}
-
-	logger.Log.Info("Database migration completed successfully")
 	return nil
 }
 

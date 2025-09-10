@@ -39,11 +39,6 @@ func main() {
 		}
 	}()
 
-	// Auto migrate database tables
-	if err := database.AutoMigrate(); err != nil {
-		logger.Log.Fatal("Failed to migrate database", zap.Error(err))
-	}
-
 	router := server.NewServer(cfg)
 
 	srv := &http.Server{
