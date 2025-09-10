@@ -9,13 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func createTestCredentials() *model.UserCredentials {
-	return &model.UserCredentials{
-		UserID:   NonExistentUserID, // Valid UUID
-		Password: "hashed_password",
-	}
-}
-
 // Testcases
 
 func TestCreateCredentialsAndFindByUserID(t *testing.T) {

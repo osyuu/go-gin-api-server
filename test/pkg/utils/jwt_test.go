@@ -10,11 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testUsername = "testuser"
+	testEmail    = "test@example.com"
+)
+
 func TestJWTManager_GenerateToken(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
-		username := "testuser"
-		email := "test@example.com"
+		username := testUsername
+		email := testEmail
 		user := &model.User{
 			ID:       "user-123",
 			Username: &username,
@@ -50,8 +55,8 @@ func TestJWTManager_GenerateToken(t *testing.T) {
 func TestJWTManager_GenerateAccessToken(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
-		username := "testuser"
-		email := "test@example.com"
+		username := testUsername
+		email := testEmail
 		user := &model.User{
 			ID:       "user-123",
 			Username: &username,
@@ -81,8 +86,8 @@ func TestJWTManager_GenerateAccessToken(t *testing.T) {
 func TestJWTManager_ValidateToken(t *testing.T) {
 	t.Run("ValidToken", func(t *testing.T) {
 		jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
-		username := "testuser"
-		email := "test@example.com"
+		username := testUsername
+		email := testEmail
 		user := &model.User{
 			ID:       "user-123",
 			Username: &username,
@@ -191,8 +196,8 @@ func TestJWTManager_GetTokenDuration(t *testing.T) {
 func TestJWTManager_TokenConsistency(t *testing.T) {
 	t.Run("GenerateTokenAndValidate", func(t *testing.T) {
 		jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
-		username := "testuser"
-		email := "test@example.com"
+		username := testUsername
+		email := testEmail
 		user := &model.User{
 			ID:       "user-123",
 			Username: &username,
@@ -219,8 +224,8 @@ func TestJWTManager_TokenConsistency(t *testing.T) {
 
 	t.Run("GenerateAccessTokenAndValidate", func(t *testing.T) {
 		jwtMgr := utils.NewJWTManager("test-secret", 15*time.Minute)
-		username := "testuser"
-		email := "test@example.com"
+		username := testUsername
+		email := testEmail
 		user := &model.User{
 			ID:       "user-123",
 			Username: &username,

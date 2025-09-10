@@ -15,27 +15,10 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func main() {
-	var (
-		action = flag.String("action", "", "Migration action: up, down, force, version")
-		steps  = flag.Int("steps", 0, "Number of migration steps (for up/down)")
-		test   = flag.Bool("test", false, "Use test database configuration")
-	)
-	flag.Parse()
-
-	if *action == "" {
-		fmt.Println("Usage: go run cmd/migrate/main.go -action=<up|down|force|version> [-steps=N] [-test]")
-		fmt.Println("Examples:")
-		fmt.Println("  go run cmd/migrate/main.go -action=up")
-		fmt.Println("  go run cmd/migrate/main.go -action=down -steps=1")
-		fmt.Println("  go run cmd/migrate/main.go -action=version")
-		fmt.Println("  go run cmd/migrate/main.go -action=up -test")
-		os.Exit(1)
-	}
-
+func runMigration(action string, steps int, test bool) error {
 	// Load configuration
 	var cfg *config.Config
-	if *test {
+	if test {
 		cfg = config.LoadTestConfig()
 		fmt.Println("Using TEST database configuration")
 	} else {
@@ -56,19 +39,19 @@ func main() {
 	// Open database connection
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		return fmt.Errorf("failed to open database: %v", err)
 	}
 	defer db.Close()
 
 	// Test connection
 	if err := db.Ping(); err != nil {
-		log.Fatalf("Failed to ping database: %v", err)
+		return fmt.Errorf("failed to ping database: %v", err)
 	}
 
 	// Create migrate instance
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		log.Fatalf("Failed to create postgres driver: %v", err)
+		return fmt.Errorf("failed to create postgres driver: %v", err)
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
@@ -77,51 +60,77 @@ func main() {
 		driver,
 	)
 	if err != nil {
-		log.Fatalf("Failed to create migrate instance: %v", err)
+		return fmt.Errorf("failed to create migrate instance: %v", err)
 	}
 
 	// Execute migration action
-	switch *action {
+	switch action {
 	case "up":
-		if *steps > 0 {
-			err = m.Steps(*steps)
+		if steps > 0 {
+			err = m.Steps(steps)
 		} else {
 			err = m.Up()
 		}
 		if err != nil && err != migrate.ErrNoChange {
-			log.Fatalf("Failed to migrate up: %v", err)
+			return fmt.Errorf("failed to migrate up: %v", err)
 		}
 		fmt.Println("Migration up completed successfully")
 
 	case "down":
-		if *steps > 0 {
-			err = m.Steps(-*steps)
+		if steps > 0 {
+			err = m.Steps(-steps)
 		} else {
 			err = m.Down()
 		}
 		if err != nil && err != migrate.ErrNoChange {
-			log.Fatalf("Failed to migrate down: %v", err)
+			return fmt.Errorf("failed to migrate down: %v", err)
 		}
 		fmt.Println("Migration down completed successfully")
 
 	case "force":
-		if *steps == 0 {
-			log.Fatal("Force action requires -steps parameter")
+		if steps == 0 {
+			return fmt.Errorf("force action requires -steps parameter")
 		}
-		err = m.Force(*steps)
+		err = m.Force(steps)
 		if err != nil {
-			log.Fatalf("Failed to force migration: %v", err)
+			return fmt.Errorf("failed to force migration: %v", err)
 		}
-		fmt.Printf("Migration forced to version %d\n", *steps)
+		fmt.Printf("Migration forced to version %d\n", steps)
 
 	case "version":
 		version, dirty, err := m.Version()
 		if err != nil {
-			log.Fatalf("Failed to get migration version: %v", err)
+			return fmt.Errorf("failed to get migration version: %v", err)
 		}
 		fmt.Printf("Current migration version: %d (dirty: %t)\n", version, dirty)
 
 	default:
-		log.Fatalf("Unknown action: %s", *action)
+		return fmt.Errorf("unknown action: %s", action)
+	}
+
+	return nil
+}
+
+func main() {
+	var (
+		action = flag.String("action", "", "Migration action: up, down, force, version")
+		steps  = flag.Int("steps", 0, "Number of migration steps (for up/down)")
+		test   = flag.Bool("test", false, "Use test database configuration")
+	)
+	flag.Parse()
+
+	if *action == "" {
+		fmt.Println("Usage: go run cmd/migrate/main.go -action=<up|down|force|version> [-steps=N] [-test]")
+		fmt.Println("Examples:")
+		fmt.Println("  go run cmd/migrate/main.go -action=up")
+		fmt.Println("  go run cmd/migrate/main.go -action=down -steps=1")
+		fmt.Println("  go run cmd/migrate/main.go -action=version")
+		fmt.Println("  go run cmd/migrate/main.go -action=up -test")
+		os.Exit(1)
+	}
+
+	// Run migration and handle errors
+	if err := runMigration(*action, *steps, *test); err != nil {
+		log.Fatalf("Migration failed: %v", err)
 	}
 }

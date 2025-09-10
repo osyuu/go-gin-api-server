@@ -14,6 +14,13 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+// Test constants
+const (
+	testUserName1 = "User 1"
+	testUserName2 = "User 2"
+	testUserID1   = "user1-id"
+)
+
 const (
 	testUserID = "test-user-id"
 )
@@ -373,20 +380,20 @@ func TestAuthService_ConcurrentRegistration(t *testing.T) {
 
 		// 第一個請求的 mock 設置
 		mockUserRepo.On("Create", mock.MatchedBy(func(u *model.User) bool {
-			return u.Name == "User 1"
+			return u.Name == testUserName1
 		})).Return(user1, nil).Once()
 
 		mockAuthRepo.On("CreateCredentials", mock.MatchedBy(func(c *model.UserCredentials) bool {
-			return c.UserID == "user1-id"
+			return c.UserID == testUserID1
 		})).Return(&model.UserCredentials{
 			ID:       "cred1-id",
-			UserID:   "user1-id",
+			UserID:   testUserID1,
 			Password: "hashed_password",
 		}, nil).Once()
 
 		// 第二個請求的 mock 設置（用戶已存在）
 		mockUserRepo.On("Create", mock.MatchedBy(func(u *model.User) bool {
-			return u.Name == "User 2"
+			return u.Name == testUserName2
 		})).Return(nil, apperrors.ErrUserExists).Once()
 
 		// 併發執行

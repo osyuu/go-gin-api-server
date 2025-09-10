@@ -22,6 +22,8 @@ import (
 
 // Test constants
 const (
+	username          = "test_user"
+	email             = "test_user@test.com"
 	NonExistentUserID = "550e8400-e29b-41d4-a716-446655440000"
 )
 
@@ -94,8 +96,8 @@ func TestCreateUser(t *testing.T) {
 
 		// 創建期望的用戶數據
 		birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-		username := "test_user"
-		email := "test_user@test.com"
+		username := username
+		email := email
 		expectedUser := model.CreateUser(
 			"Test User",
 			&username,
@@ -211,8 +213,8 @@ func TestCreateUser(t *testing.T) {
 			BirthDate: &birthDate,
 		}
 
-		username := "test_user"
-		email := "test_user@test.com"
+		username := username
+		email := email
 		mockService.On("CreateUser",
 			"Test User",
 			&username,
@@ -245,8 +247,8 @@ func TestCreateUser(t *testing.T) {
 		}
 
 		// Mock Service 返回 ErrUserUnderAge
-		username := "test_user"
-		email := "test_user@test.com"
+		username := username
+		email := email
 		mockService.On("CreateUser",
 			"Test User",
 			&username,
@@ -406,8 +408,8 @@ func TestUpdateUserProfile(t *testing.T) {
 		r := setupUserRouter(userHandler.UpdateUserProfile)
 
 		birthDate := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
-		testUsername := "test_user"
-		testEmail := "test_user@test.com"
+		testUsername := username
+		testEmail := email
 		expectedUser := &model.User{
 			ID:        "test-id",
 			Name:      "Updated User",
