@@ -51,22 +51,16 @@ jobs:
       - name: Run vet
         run: go vet ./...
 
-      - name: Install docker-compose
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-
       - name: Run database migrations
         run: |
-          # 使用 docker-compose 執行 migration
-          docker-compose run --rm migrate
-        env:
-          DB_HOST: ${{ env.TEST_DB_HOST }}
-          DB_PORT: ${{ env.TEST_DB_PORT }}
-          DB_USER: ${{ env.TEST_DB_USER }}
-          DB_PASSWORD: ${{ env.TEST_DB_PASSWORD }}
-          DB_NAME: ${{ env.TEST_DB_NAME }}
-          DB_SSLMODE: ${{ env.TEST_DB_SSLMODE }}
+          # 使用 docker run 執行 migration，避免與 CI 的 PostgreSQL 服務衝突
+          docker run --rm \
+            --network host \
+            -v "$(pwd)/migrations:/migrations" \
+            migrate/migrate \
+            -path /migrations \
+            -database "postgres://${{ env.TEST_DB_USER }}:${{ env.TEST_DB_PASSWORD }}@${{ env.TEST_DB_HOST }}:${{ env.TEST_DB_PORT }}/${{ env.TEST_DB_NAME }}?sslmode=${{ env.TEST_DB_SSLMODE }}" \
+            up
 
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
