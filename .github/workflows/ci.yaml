@@ -10,12 +10,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      TEST_DB_HOST: localhost
+      TEST_DB_PORT: 5432
+      TEST_DB_USER: postgres
+      TEST_DB_PASSWORD: postgres
+      TEST_DB_NAME: gin_api_server_test
+      TEST_DB_SSLMODE: disable
+
     services:
       postgres:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: gin_api_server_test
+          POSTGRES_DB: ${{ env.TEST_DB_NAME }}
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -34,11 +42,6 @@ jobs:
           go-version: "1.24"
           cache: true
 
-      - name: Install golang-migrate
-        run: |
-          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.16.2/migrate.linux-amd64.tar.gz | tar xvz
-          sudo mv migrate /usr/local/bin/
-
       - name: Verify dependencies
         run: go mod verify
 
@@ -49,24 +52,27 @@ jobs:
         run: go vet ./...
 
       - name: Run database migrations
-        run: make migrate-test-up
-        env:
-          TEST_DB_HOST: localhost
-          TEST_DB_PORT: 5432
-          TEST_DB_USER: postgres
-          TEST_DB_PASSWORD: postgres
-          TEST_DB_NAME: gin_api_server_test
-          TEST_DB_SSLMODE: disable
+        run: |
+          # 使用 docker run 執行 migration，避免與 CI 的 PostgreSQL 服務衝突
+          docker run --rm \
+            --network host \
+            -v "$(pwd)/migrations:/migrations" \
+            migrate/migrate \
+            -path /migrations \
+            -database "postgres://${{ env.TEST_DB_USER }}:${{ env.TEST_DB_PASSWORD }}@${{ env.TEST_DB_HOST }}:${{ env.TEST_DB_PORT }}/${{ env.TEST_DB_NAME }}?sslmode=${{ env.TEST_DB_SSLMODE }}" \
+            up
 
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
         env:
-          TEST_DB_HOST: localhost
-          TEST_DB_PORT: 5432
-          TEST_DB_USER: postgres
-          TEST_DB_PASSWORD: postgres
-          TEST_DB_NAME: gin_api_server_test
-          TEST_DB_SSLMODE: disable
+          DB_HOST: ${{ env.TEST_DB_HOST }}
+          DB_PORT: ${{ env.TEST_DB_PORT }}
+          DB_USER: ${{ env.TEST_DB_USER }}
+          DB_PASSWORD: ${{ env.TEST_DB_PASSWORD }}
+          DB_NAME: ${{ env.TEST_DB_NAME }}
+          DB_SSLMODE: ${{ env.TEST_DB_SSLMODE }}
+          TEST_DB_PORT: ${{ env.TEST_DB_PORT }}
+          TEST_DB_NAME: ${{ env.TEST_DB_NAME }}
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v4

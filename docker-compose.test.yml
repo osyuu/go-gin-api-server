@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  # 測試資料庫
+  postgres:
+    image: postgres:15-alpine
+    container_name: gin-api-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${TEST_DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${TEST_DB_PORT:-5433}:5432" # 使用不同端口避免衝突
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gin-api-test-network
+
+  # 資料庫遷移
+  migrate:
+    image: migrate/migrate
+    volumes:
+      - ./migrations:/migrations
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${TEST_DB_NAME}?sslmode=${DB_SSLMODE}",
+        "up",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gin-api-test-network
+
+volumes:
+  postgres_test_data:
+
+networks:
+  gin-api-test-network:
+    driver: bridge
