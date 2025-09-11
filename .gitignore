@@ -8,6 +8,8 @@ go-gin-api-server
 
 # Compiled binaries (but not source directories)
 /server
+/migrate
+/main
 
 # Test binary, built with `go test -c`
 *.test

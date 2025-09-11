@@ -33,11 +33,6 @@ var AppConfig *Config
 func LoadConfig() *Config {
 	env := getEnv("APP_ENV", "development")
 
-	// 如果是測試環境，直接使用 LoadTestConfig
-	if env == "test" {
-		return LoadTestConfig()
-	}
-
 	// 開發和生產環境配置
 	AppConfig = &Config{
 		Env:      env,
@@ -72,12 +67,12 @@ func LoadTestConfig() *Config {
 			RefreshTokenExpiration: 7 * 24 * time.Hour,
 		},
 		Database: DatabaseConfig{
-			Host:     getEnv("TEST_DB_HOST", "localhost"),
-			Port:     getEnv("TEST_DB_PORT", "5432"),
-			User:     getEnv("TEST_DB_USER", "postgres"),
-			Password: getEnv("TEST_DB_PASSWORD", "password"),
-			DBName:   getEnv("TEST_DB_NAME", "gin_api_server_test"), // 測試專用資料庫
-			SSLMode:  getEnv("TEST_DB_SSLMODE", "disable"),
+			Host:     getEnv("DB_HOST", "localhost"),
+			Port:     getEnv("TEST_DB_PORT", "5433"),
+			User:     getEnv("DB_USER", "postgres"),
+			Password: getEnv("DB_PASSWORD", "password"),
+			DBName:   getEnv("TEST_DB_NAME", "gin_api_server_test"),
+			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 	}
 }

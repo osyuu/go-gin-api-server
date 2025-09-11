@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 		panic("Failed to check database tables: " + err.Error())
 	}
 	if count == 0 {
-		panic("Database tables not found. Please run 'make migrate-test-up' before running integration tests.")
+		panic("Database tables not found. Please ensure test database is set up with migrations.")
 	}
 
 	// 運行測試
