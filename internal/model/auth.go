@@ -52,12 +52,8 @@ type UserCredentials struct {
 // GORM Hooks
 func (uc *UserCredentials) BeforeCreate(tx *gorm.DB) error {
 	now := time.Now().UTC().Truncate(time.Microsecond)
-	if uc.CreatedAt.IsZero() {
-		uc.CreatedAt = now
-	}
-	if uc.UpdatedAt.IsZero() {
-		uc.UpdatedAt = now
-	}
+	uc.CreatedAt = now
+	uc.UpdatedAt = now
 	return nil
 }
 

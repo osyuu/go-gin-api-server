@@ -23,27 +23,20 @@ type User struct {
 
 // CreateUser creates a new user with the given information
 func CreateUser(name string, username *string, email *string, birthDate *time.Time) *User {
-	now := time.Now().UTC().Truncate(time.Microsecond)
 	return &User{
 		Name:      name,
 		Username:  username,
 		Email:     email,
 		BirthDate: birthDate,
 		IsActive:  true, // default to active
-		CreatedAt: now,
-		UpdatedAt: now,
 	}
 }
 
 // GORM Hooks
 func (u *User) BeforeCreate(tx *gorm.DB) error {
 	now := time.Now().UTC().Truncate(time.Microsecond)
-	if u.CreatedAt.IsZero() {
-		u.CreatedAt = now
-	}
-	if u.UpdatedAt.IsZero() {
-		u.UpdatedAt = now
-	}
+	u.CreatedAt = now
+	u.UpdatedAt = now
 	return nil
 }
 
