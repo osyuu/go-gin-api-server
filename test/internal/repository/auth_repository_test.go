@@ -49,7 +49,7 @@ func TestCreateCredentialsAndFindByUserID(t *testing.T) {
 
 		repo := repository.NewAuthRepositoryWithDB(tx)
 
-		found, err := repo.FindByUserID("non-existent-user")
+		found, err := repo.FindByUserID(NonExistentUserID)
 
 		assert.ErrorIs(t, err, apperrors.ErrNotFound)
 		assert.Nil(t, found)

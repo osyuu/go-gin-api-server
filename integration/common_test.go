@@ -25,6 +25,7 @@ const (
 	NonExistentUserID = "550e8400-e29b-41d4-a716-446655440000"
 	NonExistentPostID = 999999999999
 	InvalidCursorID   = "invalid-id"
+	AdminUserID       = "admin-user-id-6734"
 )
 
 // 全局變量，在 TestMain 中初始化
@@ -112,6 +113,35 @@ func makeHTTPRequest(t *testing.T, router *gin.Engine, method, url string, body 
 	req.Header.Set("Content-Type", "application/json")
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
+}
+
+// makeHTTPRequestWithCookie 發送帶有 Cookie 的 HTTP 請求
+func makeHTTPRequestWithCookie(t *testing.T, router *gin.Engine, method, url string, body interface{}, refreshToken string) *httptest.ResponseRecorder {
+	var reqBody *bytes.Buffer
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		assert.NoError(t, err)
+		reqBody = bytes.NewBuffer(jsonBody)
+	} else {
+		reqBody = bytes.NewBuffer(nil)
+	}
+
+	req, err := http.NewRequest(method, url, reqBody)
+	assert.NoError(t, err)
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// 添加 refresh token cookie
+	if refreshToken != "" {
+		req.AddCookie(&http.Cookie{
+			Name:  "gin_api_refresh_token",
+			Value: refreshToken,
+		})
 	}
 
 	w := httptest.NewRecorder()

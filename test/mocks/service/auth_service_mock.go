@@ -23,11 +23,9 @@ func (m *AuthServiceMock) Register(req *model.RegisterRequest) (*model.TokenResp
 		if !ok {
 			return nil, args.Error(1)
 		}
-		err := args.Error(1)
-		return response, err
+		return response, args.Error(1)
 	}
-	err := args.Error(1)
-	return nil, err
+	return nil, args.Error(1)
 }
 
 func (m *AuthServiceMock) Login(req *model.LoginRequest) (*model.TokenResponse, error) {
@@ -37,11 +35,9 @@ func (m *AuthServiceMock) Login(req *model.LoginRequest) (*model.TokenResponse, 
 		if !ok {
 			return nil, args.Error(1)
 		}
-		err := args.Error(1)
-		return response, err
+		return response, args.Error(1)
 	}
-	err := args.Error(1)
-	return nil, err
+	return nil, args.Error(1)
 }
 
 func (m *AuthServiceMock) RefreshToken(refreshToken string) (*model.TokenResponse, error) {
@@ -51,18 +47,15 @@ func (m *AuthServiceMock) RefreshToken(refreshToken string) (*model.TokenRespons
 		if !ok {
 			return nil, args.Error(1)
 		}
-		err := args.Error(1)
-		return response, err
+		return response, args.Error(1)
 	}
-	err := args.Error(1)
-	return nil, err
+	return nil, args.Error(1)
 }
 
 func (m *AuthServiceMock) RefreshAccessToken(refreshToken string) (string, error) {
 	args := m.Called(refreshToken)
 	token := args.String(0)
-	err := args.Error(1)
-	return token, err
+	return token, args.Error(1)
 }
 
 func (m *AuthServiceMock) ValidateToken(tokenString string) (*model.Claims, error) {
@@ -72,9 +65,31 @@ func (m *AuthServiceMock) ValidateToken(tokenString string) (*model.Claims, erro
 		if !ok {
 			return nil, args.Error(1)
 		}
-		err := args.Error(1)
-		return claimsResult, err
+		return claimsResult, args.Error(1)
 	}
-	err := args.Error(1)
-	return nil, err
+	return nil, args.Error(1)
+}
+
+func (m *AuthServiceMock) ActivateUser(userID string, currentUserID string) (*model.User, error) {
+	args := m.Called(userID, currentUserID)
+	if user := args.Get(0); user != nil {
+		userResult, ok := user.(*model.User)
+		if !ok {
+			return nil, args.Error(1)
+		}
+		return userResult, args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *AuthServiceMock) DeactivateUser(userID string, currentUserID string) (*model.User, error) {
+	args := m.Called(userID, currentUserID)
+	if user := args.Get(0); user != nil {
+		userResult, ok := user.(*model.User)
+		if !ok {
+			return nil, args.Error(1)
+		}
+		return userResult, args.Error(1)
+	}
+	return nil, args.Error(1)
 }
