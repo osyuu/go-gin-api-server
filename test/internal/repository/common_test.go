@@ -21,21 +21,31 @@ func TestMain(m *testing.M) {
 	cfg := config.LoadTestConfig()
 	logger.Init("test")
 
+	logger.Log.Info("TestMain started - Initializing repository test environment")
+
 	// Initialize test database
 	if err := database.InitDatabase(cfg.Database); err != nil {
 		panic("Failed to initialize test database: " + err.Error())
 	}
 
-	// Run database migration using golang-migrate
-	// Note: Test database should be set up with proper migrations before running tests
-	// For now, we'll skip AutoMigrate since we're using golang-migrate
-	// db := database.GetDB()
-	// if err := db.AutoMigrate(&model.User{}, &model.UserCredentials{}); err != nil {
-	// 	panic("Failed to migrate test database: " + err.Error())
-	// }
+	// Run database migration
+	// Note: Integration tests should use golang-migrate to manage database schema
+	// Please ensure to run: make migrate-test-up before running integration tests
+	db := database.GetDB()
+	// Check if tables exist, if not, prompt user to run migration
+	var count int64
+	if err := db.Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'users'").Scan(&count).Error; err != nil {
+		panic("Failed to check database tables: " + err.Error())
+	}
+	if count == 0 {
+		panic("Database tables not found. Please ensure test database is set up with migrations.")
+	}
 
 	// Run tests
+	logger.Log.Info("Running repository tests...")
 	code := m.Run()
+
+	logger.Log.Info("TestMain completed - Running tests")
 
 	// Exit
 	os.Exit(code)

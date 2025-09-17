@@ -26,3 +26,13 @@ func BindQuery(c *gin.Context, obj interface{}) error {
 	}
 	return nil
 }
+
+func BindUri(c *gin.Context, obj interface{}) error {
+	if err := c.ShouldBindUri(obj); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request format",
+		})
+		return err
+	}
+	return nil
+}

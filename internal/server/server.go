@@ -56,7 +56,7 @@ func NewServer(cfg *config.Config) *gin.Engine {
 	postService := service.NewPostService(postRepo)
 
 	// Initialize handlers
-	userHandler := handler.NewUserHandler(userService)
+	userHandler := handler.NewUserHandler(userService, logger.Log)
 	authHandler := handler.NewAuthHandler(authService)
 	postHandler := handler.NewPostHandler(postService, logger.Log)
 
