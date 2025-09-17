@@ -57,7 +57,7 @@ func NewServer(cfg *config.Config) *gin.Engine {
 
 	// Initialize handlers
 	userHandler := handler.NewUserHandler(userService, logger.Log)
-	authHandler := handler.NewAuthHandler(authService)
+	authHandler := handler.NewAuthHandler(authService, logger.Log)
 	postHandler := handler.NewPostHandler(postService, logger.Log)
 
 	// Initialize middleware

@@ -17,6 +17,10 @@ type AuthService interface {
 	RefreshToken(refreshToken string) (*model.TokenResponse, error)
 	RefreshAccessToken(refreshToken string) (string, error)
 	ValidateToken(tokenString string) (*model.Claims, error)
+
+	// User status management
+	ActivateUser(userID string, currentUserID string) (*model.User, error)
+	DeactivateUser(userID string, currentUserID string) (*model.User, error)
 }
 
 type authServiceImpl struct {
@@ -34,19 +38,19 @@ func NewAuthService(userRepo repository.UserRepository, authRepo repository.Auth
 }
 
 func (s *authServiceImpl) Register(req *model.RegisterRequest) (*model.TokenResponse, error) {
-	// 1. validate
+	// business logic validation: check if the user is under 13
 	if req.BirthDate != nil {
 		if s.isUnder13(*req.BirthDate) {
 			return nil, apperrors.ErrUserUnderAge
 		}
 	}
 
-	// Check reserved username only if username is provided
+	// business logic validation: check if the username is reserved
 	if req.Username != "" && s.isReservedUsername(req.Username) {
 		return nil, apperrors.ErrValidation
 	}
 
-	// 2. create user
+	// create user
 	var username, email *string
 	if req.Username != "" {
 		username = &req.Username
@@ -62,7 +66,7 @@ func (s *authServiceImpl) Register(req *model.RegisterRequest) (*model.TokenResp
 		return nil, err
 	}
 
-	// 3. hash password
+	// hash password
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
 		// if password hash failed, delete the created user
@@ -72,7 +76,7 @@ func (s *authServiceImpl) Register(req *model.RegisterRequest) (*model.TokenResp
 		return nil, err
 	}
 
-	// 4. create credentials
+	// create credentials
 	credentials := &model.UserCredentials{
 		UserID:   user.ID,
 		Password: hashedPassword,
@@ -128,6 +132,11 @@ func (s *authServiceImpl) Login(req *model.LoginRequest) (*model.TokenResponse, 
 }
 
 func (s *authServiceImpl) RefreshToken(refreshToken string) (*model.TokenResponse, error) {
+	// business logic validation: check if the refresh token is empty
+	if refreshToken == "" {
+		return nil, apperrors.ErrUnauthorized
+	}
+
 	claims, err := s.jwtMgr.ValidateToken(refreshToken)
 	if err != nil {
 		return nil, err
@@ -168,6 +177,54 @@ func (s *authServiceImpl) ValidateToken(tokenString string) (*model.Claims, erro
 	return s.jwtMgr.ValidateToken(tokenString)
 }
 
+func (s *authServiceImpl) ActivateUser(userID string, currentUserID string) (*model.User, error) {
+	// business logic validation: check if the user is the admin
+	if !s.isAdmin(currentUserID) {
+		return nil, apperrors.ErrForbidden
+	}
+
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if user.IsActive {
+		return user, nil
+	}
+
+	user.IsActive = true
+	updatedUser, err := s.userRepo.Update(userID, user)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedUser, nil
+}
+
+func (s *authServiceImpl) DeactivateUser(userID string, currentUserID string) (*model.User, error) {
+	// business logic validation: check if the user is the current user or admin
+	if userID != currentUserID && !s.isAdmin(currentUserID) {
+		return nil, apperrors.ErrForbidden
+	}
+
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !user.IsActive {
+		return user, nil
+	}
+
+	user.IsActive = false
+	updatedUser, err := s.userRepo.Update(userID, user)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedUser, nil
+}
+
 // 業務邏輯驗證輔助方法
 
 // isUnder13 檢查用戶是否未滿13歲
@@ -192,4 +249,10 @@ func (s *authServiceImpl) isReservedUsername(username string) bool {
 	}
 
 	return slices.Contains(reservedUsernames, username)
+}
+
+func (s *authServiceImpl) isAdmin(userID string) bool {
+	adminUserID := "admin-user-id-6734" // TODO: 從配置文件或環境變量讀取
+
+	return userID == adminUserID
 }

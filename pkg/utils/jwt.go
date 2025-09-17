@@ -9,6 +9,10 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+const (
+	JWTIssuer = "go-gin-api-server"
+)
+
 type JWTManager struct {
 	secretKey     string
 	tokenDuration time.Duration
@@ -37,7 +41,7 @@ func (j *JWTManager) GenerateToken(user *model.User) (*model.TokenResponse, erro
 			ExpiresAt: jwt.NewNumericDate(refreshExpiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
-			Issuer:    "go-gin-api-server",
+			Issuer:    JWTIssuer,
 			Subject:   user.ID,
 		},
 	}
@@ -67,7 +71,7 @@ func (j *JWTManager) GenerateAccessToken(user *model.User) (string, error) {
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
-			Issuer:    "go-gin-api-server",
+			Issuer:    JWTIssuer,
 			Subject:   user.ID,
 		},
 	}
