@@ -14,7 +14,7 @@ type PaginatedResponse[T any] struct {
 }
 
 func NewPaginatedResponse[T any](data []T, total int, page, pageSize int) *PaginatedResponse[T] {
-	totalPages := int((total + pageSize - 1) / pageSize)
+	totalPages := (total + pageSize - 1) / pageSize
 
 	return &PaginatedResponse[T]{
 		Data:       data,

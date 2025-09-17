@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"go-gin-api-server/config"
 	"go-gin-api-server/internal/database"
+	"go-gin-api-server/internal/model"
+	"go-gin-api-server/internal/repository"
 	"go-gin-api-server/pkg/logger"
 	"go-gin-api-server/pkg/utils"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -119,4 +122,41 @@ func makeHTTPRequest(t *testing.T, router *gin.Engine, method, url string, body 
 func parseJSONResponse(t *testing.T, w *httptest.ResponseRecorder, target interface{}) {
 	err := json.Unmarshal(w.Body.Bytes(), target)
 	assert.NoError(t, err)
+}
+
+func createTestUser(t *testing.T, db *gorm.DB, overrides ...map[string]interface{}) *model.User {
+	username := "testuser"
+	email := "test@example.com"
+	birthDate := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	if len(overrides) > 0 {
+		override := overrides[0]
+		if val, ok := override["username"]; ok {
+			username = val.(string)
+		}
+		if val, ok := override["email"]; ok {
+			email = val.(string)
+		}
+		if val, ok := override["birth_date"]; ok {
+			birthDate = val.(time.Time)
+		}
+	}
+
+	user := model.CreateUser(
+		"Test User",
+		&username,
+		&email,
+		&birthDate,
+	)
+
+	userRepo := repository.NewUserRepositoryWithDB(db)
+	createdUser, err := userRepo.Create(user)
+	assert.NoError(t, err)
+	return createdUser
+}
+
+func createTestToken(t *testing.T, user *model.User) *model.TokenResponse {
+	token, err := globalJWTManager.GenerateToken(user)
+	assert.NoError(t, err)
+	return token
 }

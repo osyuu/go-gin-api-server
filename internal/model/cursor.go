@@ -34,7 +34,10 @@ func (c *CursorRequest) SetDefaults() {
 }
 
 func EncodeCursor(cursor Cursor) string {
-	data, _ := json.Marshal(cursor)
+	data, err := json.Marshal(cursor)
+	if err != nil {
+		return ""
+	}
 	return base64.StdEncoding.EncodeToString(data)
 }
 

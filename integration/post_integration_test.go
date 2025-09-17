@@ -50,40 +50,6 @@ func setupIntegrationPostRouter(db *gorm.DB) *gin.Engine {
 	return r
 }
 
-// Helper function
-func createTestUser(t *testing.T, db *gorm.DB, overrides ...map[string]interface{}) *model.User {
-	username := "testuser"
-	email := "test@example.com"
-
-	if len(overrides) > 0 {
-		override := overrides[0]
-		if val, ok := override["username"]; ok {
-			username = val.(string)
-		}
-		if val, ok := override["email"]; ok {
-			email = val.(string)
-		}
-	}
-
-	user := model.CreateUser(
-		"Test User",
-		&username,
-		&email,
-		nil,
-	)
-
-	userRepo := repository.NewUserRepositoryWithDB(db)
-	createdUser, err := userRepo.Create(user)
-	assert.NoError(t, err)
-	return createdUser
-}
-
-func createTestToken(t *testing.T, user *model.User) *model.TokenResponse {
-	token, err := globalJWTManager.GenerateToken(user)
-	assert.NoError(t, err)
-	return token
-}
-
 func TestPostIntegration_PostLifecycle(t *testing.T) {
 	db := setup()
 	defer teardown(db)
