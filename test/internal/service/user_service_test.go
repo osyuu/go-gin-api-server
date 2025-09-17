@@ -32,6 +32,12 @@ func createTestUser() *model.User {
 	)
 }
 
+var (
+	NonExistentUserID   = "550e8400-e29b-41d4-a716-446655440000"
+	NonExistentUsername = "nonexistent"
+	NonExistentEmail    = "nonexistent@test.com"
+)
+
 // Testcases
 
 func TestCreateUser(t *testing.T) {
@@ -111,9 +117,13 @@ func TestUpdateUserProfile(t *testing.T) {
 		}
 
 		repo.On("Update", mock.Anything, mock.Anything).Return(expected, nil)
+		req := model.UpdateUserProfileRequest{
+			Name:      "updated",
+			BirthDate: &birthDate,
+		}
 
 		// run
-		updated, err := mockService.UpdateUserProfile(created.ID, "updated", &birthDate)
+		updated, err := mockService.UpdateUserProfile(created.ID, created.ID, req)
 
 		// assert
 		assert.NoError(t, err)
@@ -130,18 +140,64 @@ func TestUpdateUserProfile(t *testing.T) {
 	t.Run("ErrorUnderAge", func(t *testing.T) {
 		repo, mockService := setupTestUserService()
 		underAgeBirthDate := time.Date(2015, 1, 1, 0, 0, 0, 0, time.UTC) // under age
-
+		createdID := "1"
+		req := model.UpdateUserProfileRequest{
+			Name:      "",
+			BirthDate: &underAgeBirthDate,
+		}
 		// run
 		created, err := mockService.UpdateUserProfile(
-			"1",
-			"", // 不更新 name
-			&underAgeBirthDate,
+			createdID,
+			createdID,
+			req,
 		)
 
 		// assert
 		assert.ErrorIs(t, err, apperrors.ErrUserUnderAge)
 		assert.Nil(t, created)
 		repo.AssertNotCalled(t, "Update")
+	})
+
+	t.Run("ErrorForbidden", func(t *testing.T) {
+		repo, mockService := setupTestUserService()
+		createdID := "1"
+		repo.On("Update", mock.Anything, mock.Anything).Return(nil, apperrors.ErrForbidden)
+		req := model.UpdateUserProfileRequest{
+			Name:      "Updated User",
+			BirthDate: nil,
+		}
+
+		created, err := mockService.UpdateUserProfile(
+			createdID,
+			"2", // different user ID
+			req,
+		)
+
+		assert.ErrorIs(t, err, apperrors.ErrForbidden)
+		assert.Nil(t, created)
+		repo.AssertNotCalled(t, "Update")
+	})
+}
+
+func TestDeleteUser(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		repo, mockService := setupTestUserService()
+		repo.On("Delete", mock.Anything).Return(nil)
+
+		err := mockService.DeleteUser(NonExistentUserID)
+
+		assert.NoError(t, err)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		repo, mockService := setupTestUserService()
+		repo.On("Delete", mock.Anything).Return(apperrors.ErrNotFound)
+
+		err := mockService.DeleteUser(NonExistentUserID)
+
+		assert.ErrorIs(t, err, apperrors.ErrNotFound)
+		repo.AssertExpectations(t)
 	})
 }
 
@@ -160,9 +216,9 @@ func TestGetUserByID(t *testing.T) {
 
 	t.Run("NotFound", func(t *testing.T) {
 		repo, mockService := setupTestUserService()
-		repo.On("FindByID", "nonexistent").Return(nil, apperrors.ErrNotFound)
+		repo.On("FindByID", mock.Anything).Return(nil, apperrors.ErrNotFound)
 
-		user, err := mockService.GetUserByID("nonexistent")
+		user, err := mockService.GetUserByID(NonExistentUserID)
 
 		assert.ErrorIs(t, err, apperrors.ErrNotFound)
 		assert.Nil(t, user)
@@ -182,18 +238,70 @@ func TestGetUserByUsername(t *testing.T) {
 		assert.Equal(t, expected, user)
 		repo.AssertExpectations(t)
 	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		repo, mockService := setupTestUserService()
+		repo.On("FindByUsername", mock.Anything).Return(nil, apperrors.ErrNotFound)
+
+		user, err := mockService.GetUserByUsername(NonExistentUsername)
+
+		assert.ErrorIs(t, err, apperrors.ErrNotFound)
+		assert.Nil(t, user)
+		repo.AssertExpectations(t)
+	})
 }
 
 func TestGetUserByEmail(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		repo, mockService := setupTestUserService()
 		expected := createTestUser()
-		repo.On("FindByEmail", *expected.Email).Return(expected, nil)
+		repo.On("FindByEmail", mock.Anything).Return(expected, nil)
 
 		user, err := mockService.GetUserByEmail(*expected.Email)
 
 		assert.NoError(t, err)
 		assert.Equal(t, expected, user)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		repo, mockService := setupTestUserService()
+		repo.On("FindByEmail", mock.Anything).Return(nil, apperrors.ErrNotFound)
+
+		user, err := mockService.GetUserByEmail(NonExistentEmail)
+
+		assert.ErrorIs(t, err, apperrors.ErrNotFound)
+		assert.Nil(t, user)
+		repo.AssertExpectations(t)
+	})
+}
+
+func TestGetUserProfile(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		repo, mockService := setupTestUserService()
+		expected := createTestUser()
+		repo.On("FindByUsername", mock.Anything).Return(expected, nil)
+
+		// run
+		user, err := mockService.GetUserProfile(*expected.Username)
+
+		// assert
+		assert.NoError(t, err)
+		assert.Equal(t, expected.Name, user.Name)
+		assert.Equal(t, expected.Username, user.Username)
+		repo.AssertExpectations(t)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		repo, mockService := setupTestUserService()
+		repo.On("FindByUsername", mock.Anything).Return(nil, apperrors.ErrNotFound)
+
+		// run
+		user, err := mockService.GetUserProfile(NonExistentUsername)
+
+		// assert
+		assert.ErrorIs(t, err, apperrors.ErrNotFound)
+		assert.Nil(t, user)
 		repo.AssertExpectations(t)
 	})
 }
