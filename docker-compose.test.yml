@@ -1,5 +1,7 @@
 version: "3.8"
 
+name: gin-api-server-test-db
+
 services:
   # 測試資料庫
   postgres:

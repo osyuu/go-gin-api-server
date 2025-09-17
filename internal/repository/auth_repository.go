@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"go-gin-api-server/internal/database"
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/apperrors"
@@ -38,7 +39,13 @@ func (r *authRepositoryImpl) CreateCredentials(credentials *model.UserCredential
 	}
 
 	var existingCredentials model.UserCredentials
-	if err := r.db.Where("user_id = ?", credentials.UserID).First(&existingCredentials).Error; err == nil {
+	if err := r.db.
+		Where("user_id = ?", credentials.UserID).
+		First(&existingCredentials).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	} else {
 		return nil, apperrors.ErrUserExists
 	}
 
@@ -51,8 +58,13 @@ func (r *authRepositoryImpl) CreateCredentials(credentials *model.UserCredential
 
 func (r *authRepositoryImpl) FindByUserID(userID string) (*model.UserCredentials, error) {
 	var credentials model.UserCredentials
-	if err := r.db.Where("user_id = ?", userID).First(&credentials).Error; err != nil {
-		return nil, apperrors.ErrNotFound
+	if err := r.db.
+		Where("user_id = ?", userID).
+		First(&credentials).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.ErrNotFound
+		}
+		return nil, err
 	}
 
 	return &credentials, nil

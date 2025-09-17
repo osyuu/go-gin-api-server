@@ -3,38 +3,30 @@ package handler
 import (
 	"errors"
 	"go-gin-api-server/internal/middleware"
+	"go-gin-api-server/internal/model"
 	"go-gin-api-server/internal/service"
 	"go-gin-api-server/pkg/apperrors"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
-
-// Request structures for better type safety and validation
-type CreateUserRequest struct {
-	Name      string     `json:"name" binding:"required,min=3"`
-	Username  string     `json:"username" binding:"required,min=3,max=50,username"`
-	Email     string     `json:"email" binding:"required,email"`
-	BirthDate *time.Time `json:"birth_date,omitempty"`
-}
-
-type UpdateUserProfileRequest struct {
-	Name      string     `json:"name,omitempty" binding:"omitempty,min=3"`
-	BirthDate *time.Time `json:"birth_date,omitempty"`
-}
 
 type UserHandler struct {
 	service service.UserService
+	logger  *zap.Logger
 }
 
-func NewUserHandler(service service.UserService) *UserHandler {
-	return &UserHandler{service: service}
+func NewUserHandler(service service.UserService, logger *zap.Logger) *UserHandler {
+	return &UserHandler{
+		service: service,
+		logger:  logger,
+	}
 }
 
 func (h *UserHandler) RegisterRoutes(r *gin.Engine) {
-	// Public routes
-	r.POST("/api/v1/users", h.CreateUser)
+	// Public routes - only safe user queries
+	r.GET("/api/v1/users/profile/:username", h.GetUserProfile)
 }
 
 func (h *UserHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware) {
@@ -42,19 +34,46 @@ func (h *UserHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *mid
 	protected := r.Group("/api/v1/users")
 	protected.Use(authMiddleware.RequireAuth())
 	{
-		// Get user info
+		// Get user info (sensitive data)
 		protected.GET("/:id", h.GetUserByID)
 		protected.GET("/username/:username", h.GetUserByUsername)
 		protected.GET("/email/:email", h.GetUserByEmail)
 
 		// User management operations
 		protected.PATCH("/:id", h.UpdateUserProfile)
-		protected.PATCH("/:id/activate", h.ActivateUser)
-		protected.PATCH("/:id/deactivate", h.DeactivateUser)
-		protected.DELETE("/:id", h.DeleteUser)
+
+		// Admin operations (not implemented)
+		// protected.DELETE("/:id", h.DeleteUser)
 	}
 }
 
+// GetUserProfile Get user public profile
+//
+// Example:
+//
+//	GET /api/v1/users/john_doe
+func (h *UserHandler) GetUserProfile(c *gin.Context) {
+	var req struct {
+		Username string `uri:"username" binding:"required,username"`
+	}
+
+	if err := BindUri(c, &req); err != nil {
+		return
+	}
+
+	publicInfo, err := h.service.GetUserProfile(req.Username)
+	if err != nil {
+		h.handleUserError(c, err, "GetUserProfile")
+		return
+	}
+	h.handleSuccess(c, publicInfo, http.StatusOK)
+}
+
+// GetUserByID Get user by ID
+//
+// Example:
+//
+//	GET /api/v1/users/550e8400-e29b-41d4-a716-446655440000
 func (h *UserHandler) GetUserByID(c *gin.Context) {
 	id := c.Param("id")
 	user, err := h.service.GetUserByID(id)
@@ -67,9 +86,21 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 	h.handleSuccess(c, user, http.StatusOK)
 }
 
+// GetUserByUsername Get user by username
+//
+// Example:
+//
+//	GET /api/v1/users/username/john_doe
 func (h *UserHandler) GetUserByUsername(c *gin.Context) {
-	username := c.Param("username")
-	user, err := h.service.GetUserByUsername(username)
+	var req struct {
+		Username string `uri:"username" binding:"required,username"`
+	}
+
+	if err := BindUri(c, &req); err != nil {
+		return
+	}
+
+	user, err := h.service.GetUserByUsername(req.Username)
 	if err != nil {
 		h.handleUserError(c, err, "GetUserByUsername")
 		return
@@ -77,9 +108,21 @@ func (h *UserHandler) GetUserByUsername(c *gin.Context) {
 	h.handleSuccess(c, user, http.StatusOK)
 }
 
+// GetUserByEmail Get user by email
+//
+// Example:
+//
+//	GET /api/v1/users/email/user@example.com
 func (h *UserHandler) GetUserByEmail(c *gin.Context) {
-	email := c.Param("email")
-	user, err := h.service.GetUserByEmail(email)
+	var req struct {
+		Email string `uri:"email" binding:"required,email"`
+	}
+
+	if err := BindUri(c, &req); err != nil {
+		return
+	}
+
+	user, err := h.service.GetUserByEmail(req.Email)
 	if err != nil {
 		h.handleUserError(c, err, "GetUserByEmail")
 		return
@@ -87,43 +130,23 @@ func (h *UserHandler) GetUserByEmail(c *gin.Context) {
 	h.handleSuccess(c, user, http.StatusOK)
 }
 
-func (h *UserHandler) CreateUser(c *gin.Context) {
-	var req CreateUserRequest
-	if err := BindJSON(c, &req); err != nil {
-		return
-	}
-	var username, email *string
-	if req.Username != "" {
-		username = &req.Username
-	}
-	if req.Email != "" {
-		email = &req.Email
-	}
-
-	createdUser, err := h.service.CreateUser(
-		req.Name,
-		username,
-		email,
-		req.BirthDate,
-	)
-	if err != nil {
-		h.handleUserError(c, err, "CreateUser")
-		return
-	}
-	h.handleSuccess(c, createdUser, http.StatusCreated)
-}
-
+// UpdateUserProfile Update user profile
+//
+// Example:
+//
+//	PATCH /api/v1/users/550e8400-e29b-41d4-a716-446655440000
+//	{
+//		"name": "New Name",
+//		"birth_date": "1990-01-01T00:00:00Z"
+//	}
 func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 	userID := c.Param("id")
-
-	// 從請求體獲取更新數據
-	var update UpdateUserProfileRequest
+	var update model.UpdateUserProfileRequest
 
 	if err := BindJSON(c, &update); err != nil {
 		return
 	}
 
-	// 檢查是否有任何更新選項
 	if update.Name == "" && update.BirthDate == nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "No update fields provided",
@@ -131,7 +154,10 @@ func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 		return
 	}
 
-	updated, err := h.service.UpdateUserProfile(userID, update.Name, update.BirthDate)
+	// Get current user ID from auth context
+	currentUserID := c.GetString("user_id")
+
+	updated, err := h.service.UpdateUserProfile(userID, currentUserID, update)
 	if err != nil {
 		h.handleUserError(c, err, "UpdateUserProfile")
 		return
@@ -140,26 +166,11 @@ func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 	h.handleSuccess(c, updated, http.StatusOK)
 }
 
-func (h *UserHandler) ActivateUser(c *gin.Context) {
-	userID := c.Param("id")
-	err := h.service.ActivateUser(userID)
-	if err != nil {
-		h.handleUserError(c, err, "ActivateUser")
-		return
-	}
-	h.handleSuccess(c, nil, http.StatusNoContent)
-}
-
-func (h *UserHandler) DeactivateUser(c *gin.Context) {
-	userID := c.Param("id")
-	err := h.service.DeactivateUser(userID)
-	if err != nil {
-		h.handleUserError(c, err, "DeactivateUser")
-		return
-	}
-	h.handleSuccess(c, nil, http.StatusNoContent)
-}
-
+// DeleteUser Delete user
+//
+// Example:
+//
+//	DELETE /api/v1/users/550e8400-e29b-41d4-a716-446655440000
 func (h *UserHandler) DeleteUser(c *gin.Context) {
 	userID := c.Param("id")
 	err := h.service.DeleteUser(userID)
@@ -175,33 +186,43 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 func (h *UserHandler) handleUserError(c *gin.Context, err error, _ string) {
 	switch {
 	case errors.Is(err, apperrors.ErrNotFound):
+		h.logger.Error("User not found", zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "User not found",
 		})
 	case errors.Is(err, apperrors.ErrValidation):
+		h.logger.Error("Validation failed", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Validation failed",
 		})
 	case errors.Is(err, apperrors.ErrUserExists):
+		h.logger.Error("User already exists", zap.Error(err))
 		c.JSON(http.StatusConflict, gin.H{
 			"error": "User already exists",
 		})
 	case errors.Is(err, apperrors.ErrUserUnderAge):
+		h.logger.Error("User under age", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "User under age",
 		})
 	case errors.Is(err, apperrors.ErrUnauthorized):
+		h.logger.Error("Unauthorized", zap.Error(err))
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "Unauthorized",
 		})
+	case errors.Is(err, apperrors.ErrForbidden):
+		h.logger.Error("Forbidden", zap.Error(err))
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "Forbidden",
+		})
 	default:
+		h.logger.Error("Internal server error", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Internal server error",
 		})
 	}
 }
 
-// 處理成功響應
 func (h *UserHandler) handleSuccess(c *gin.Context, data interface{}, statusCode int) {
 	if data != nil {
 		c.JSON(statusCode, data)

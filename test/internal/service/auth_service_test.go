@@ -22,7 +22,9 @@ const (
 )
 
 const (
-	testUserID = "test-user-id"
+	testUserID      = "test-user-id"
+	testOtherUserID = "test-other-user-id"
+	testAdminUserID = "admin-user-id-6734"
 )
 
 // Helper functions
@@ -270,6 +272,17 @@ func TestAuthService_RefreshToken(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
+	t.Run("MissingToken", func(t *testing.T) {
+		_, _, _, authService := setupTestAuthService()
+
+		// run
+		result, err := authService.RefreshToken("")
+
+		// assert
+		assert.ErrorIs(t, err, apperrors.ErrUnauthorized)
+		assert.Nil(t, result)
+	})
+
 	t.Run("UserNotFound", func(t *testing.T) {
 		mockUserRepo, _, jwtMgr, authService := setupTestAuthService()
 		userID := testUserID
@@ -343,6 +356,100 @@ func TestAuthService_ValidateToken(t *testing.T) {
 		// assert
 		assert.ErrorIs(t, err, apperrors.ErrInvalidToken)
 		assert.Nil(t, claims)
+	})
+}
+
+func TestAuthService_ActivateUser(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		mockUserRepo, _, _, authService := setupTestAuthService()
+		userID := testUserID
+		user := &model.User{ID: userID, IsActive: false}
+		updatedUser := &model.User{ID: userID, IsActive: true}
+
+		// Setup mocks
+		mockUserRepo.On("FindByID", mock.Anything).Return(user, nil)
+		mockUserRepo.On("Update", mock.Anything, mock.Anything).Return(updatedUser, nil)
+
+		// run
+		result, err := authService.ActivateUser(userID, testAdminUserID)
+
+		// assert
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, user.ID, result.ID)
+		assert.True(t, result.IsActive)
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("NotAdmin_Forbidden", func(t *testing.T) {
+		_, _, _, authService := setupTestAuthService()
+		userID := testUserID
+
+		// run
+		result, err := authService.ActivateUser(userID, userID)
+
+		// assert
+		assert.ErrorIs(t, err, apperrors.ErrForbidden)
+		assert.Nil(t, result)
+	})
+}
+
+func TestAuthService_DeactivateUser(t *testing.T) {
+	t.Run("Success_Admin", func(t *testing.T) {
+		mockUserRepo, _, _, authService := setupTestAuthService()
+		userID := testUserID
+		user := &model.User{ID: userID, IsActive: true}
+		updatedUser := &model.User{ID: userID, IsActive: false}
+
+		// Setup mocks
+		mockUserRepo.On("FindByID", mock.Anything).Return(user, nil)
+		mockUserRepo.On("Update", mock.Anything, mock.Anything).Return(updatedUser, nil)
+
+		// run
+		result, err := authService.DeactivateUser(userID, testAdminUserID)
+
+		// assert
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, user.ID, result.ID)
+		assert.False(t, result.IsActive)
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success_CurrentUser", func(t *testing.T) {
+		mockUserRepo, _, _, authService := setupTestAuthService()
+		userID := testUserID
+		user := &model.User{ID: userID, IsActive: true}
+		updatedUser := &model.User{ID: userID, IsActive: false}
+
+		// Setup mocks
+		mockUserRepo.On("FindByID", mock.Anything).Return(user, nil)
+		mockUserRepo.On("Update", mock.Anything, mock.Anything).Return(updatedUser, nil)
+
+		// run
+		result, err := authService.DeactivateUser(userID, userID)
+
+		// assert
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, user.ID, result.ID)
+		assert.False(t, result.IsActive)
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Forbidden", func(t *testing.T) {
+		_, _, _, authService := setupTestAuthService()
+		userID := testUserID
+
+		// run
+		result, err := authService.DeactivateUser(userID, testOtherUserID)
+
+		// assert
+		assert.ErrorIs(t, err, apperrors.ErrForbidden)
+		assert.Nil(t, result)
 	})
 }
 

@@ -2,93 +2,139 @@ package repository
 
 import (
 	"errors"
-	"fmt"
+	"go-gin-api-server/internal/database"
 	"go-gin-api-server/internal/model"
-	"sync"
-)
+	"go-gin-api-server/pkg/apperrors"
+	"strconv"
 
-var (
-	ErrNotFound           = errors.New("post not found")
-	ErrValidation         = errors.New("validation error")
-	ErrDatabaseConnection = errors.New("database connection error")
+	"gorm.io/gorm"
 )
 
 type PostRepository interface {
 	Create(post *model.Post) (*model.Post, error)
-	FindAll() ([]model.Post, error)
-	FindByID(id string) (*model.Post, error)
-	Update(id string, post *model.Post) (*model.Post, error)
-	Delete(id string) error
+	List(opts model.PostListOptions) ([]model.Post, error)
+	FindByID(id uint64) (*model.Post, error)
+	Update(id uint64, post *model.Post) (*model.Post, error)
+	Delete(id uint64) error
+	CheckPermission(id uint64, currentUserID string) error
 }
 
 type postRepositoryImpl struct {
-	mutex sync.RWMutex
-	posts []model.Post
+	db *gorm.DB
 }
 
 func NewPostRepository() PostRepository {
 	return &postRepositoryImpl{
-		posts: make([]model.Post, 0),
+		db: database.GetDB(),
+	}
+}
+
+func NewPostRepositoryWithDB(db *gorm.DB) PostRepository {
+	return &postRepositoryImpl{
+		db: db,
 	}
 }
 
 func (r *postRepositoryImpl) Create(post *model.Post) (*model.Post, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	if post.ID == "" {
-		post.ID = fmt.Sprintf("%d", len(r.posts)+1)
+	if err := r.db.Create(post).Error; err != nil {
+		return nil, err
 	}
-
-	r.posts = append(r.posts, *post)
 	return post, nil
 }
 
-func (r *postRepositoryImpl) FindAll() ([]model.Post, error) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-	return append([]model.Post{}, r.posts...), nil
-}
+func (r *postRepositoryImpl) List(opts model.PostListOptions) ([]model.Post, error) {
+	var posts []model.Post
 
-func (r *postRepositoryImpl) FindByID(id string) (*model.Post, error) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-	for _, post := range r.posts {
-		if post.ID == id {
-			return &post, nil
+	// validate negative
+	if opts.Limit < 0 {
+		return nil, apperrors.ErrValidation
+	}
+
+	query := r.db.Preload("Author").
+		Order("created_at DESC, id DESC").
+		Limit(opts.Limit)
+
+	// handle cursor pagination
+	if opts.Cursor.ID != "" {
+		cursorID, err := strconv.ParseInt(opts.Cursor.ID, 10, 64)
+		if err != nil {
+			return nil, apperrors.ErrValidation
+		}
+
+		// only add WHERE condition when cursorID > 0
+		if cursorID > 0 {
+			query = query.Where("(created_at < ?) OR (created_at = ? AND id < ?)", opts.Cursor.CreatedAt, opts.Cursor.CreatedAt, cursorID)
 		}
 	}
-	return nil, ErrNotFound
+
+	// add optional filter
+	if opts.AuthorID != nil {
+		query = query.Where("author_id = ?", *opts.AuthorID)
+	}
+
+	if err := query.Find(&posts).Error; err != nil {
+		return nil, err
+	}
+	return posts, nil
 }
 
-func (r *postRepositoryImpl) Update(id string, updated *model.Post) (*model.Post, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-	for i, post := range r.posts {
-		if post.ID == id {
-			if updated.Title != "" {
-				r.posts[i].Title = updated.Title
-			}
-			if updated.Content != "" {
-				r.posts[i].Content = updated.Content
-			}
-			if updated.Author != "" {
-				r.posts[i].Author = updated.Author
-			}
-			return &r.posts[i], nil
+func (r *postRepositoryImpl) FindByID(id uint64) (*model.Post, error) {
+	var post model.Post
+	if err := r.db.Preload("Author").
+		Where("id = ?", id).
+		First(&post).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.ErrNotFound
 		}
+		return nil, err
 	}
-	return nil, ErrNotFound
+	return &post, nil
 }
 
-func (r *postRepositoryImpl) Delete(id string) error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-	for i, post := range r.posts {
-		if post.ID == id {
-			r.posts = append(r.posts[:i], r.posts[i+1:]...)
-			return nil
-		}
+func (r *postRepositoryImpl) Update(id uint64, updated *model.Post) (*model.Post, error) {
+	result := r.db.Model(&model.Post{}).
+		Where("id = ?", id).
+		Updates(updated)
+
+	if result.Error != nil {
+		return nil, result.Error
 	}
-	return ErrNotFound
+	if result.RowsAffected == 0 {
+		return nil, apperrors.ErrNotFound
+	}
+
+	var post model.Post
+	if err := r.db.Where("id = ?", id).
+		First(&post).Error; err != nil {
+		return nil, apperrors.ErrNotFound
+	}
+	return &post, nil
+}
+
+func (r *postRepositoryImpl) Delete(id uint64) error {
+	result := r.db.Where("id = ?", id).Delete(&model.Post{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return apperrors.ErrNotFound
+	}
+	return nil
+}
+
+func (r *postRepositoryImpl) CheckPermission(id uint64, userID string) error {
+	var count int64
+	err := r.db.Model(&model.Post{}).
+		Where("id = ? AND author_id = ?", id, userID).
+		Count(&count).Error
+
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		return apperrors.ErrForbidden
+	}
+
+	return nil
 }

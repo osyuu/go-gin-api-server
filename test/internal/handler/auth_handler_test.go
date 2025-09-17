@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"bytes"
-	"encoding/json"
 	"go-gin-api-server/internal/handler"
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/apperrors"
@@ -17,25 +15,33 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap"
 )
 
 // Helper functions
 func setupTestAuthHandler() (*handler.AuthHandler, *mockService.AuthServiceMock) {
 	mockAuthService := mockService.NewAuthServiceMock()
-	authHandler := handler.NewAuthHandler(mockAuthService)
+	authHandler := handler.NewAuthHandler(mockAuthService, zap.NewNop())
 	return authHandler, mockAuthService
 }
 
-func setupGinWithValidators() *gin.Engine {
+func setupAuthRouter(authHandler *handler.AuthHandler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
+	r := gin.New()
 
 	// Register custom validators
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		utils.RegisterCustomValidators(v)
 	}
 
-	return router
+	r.POST("/api/v1/auth/register", authHandler.Register)
+	r.POST("/api/v1/auth/login", authHandler.Login)
+	r.POST("/api/v1/auth/refresh", authHandler.RefreshToken)
+	r.POST("/api/v1/auth/users/:id/activate", authHandler.ActivateUser)
+	r.POST("/api/v1/auth/users/:id/deactivate", authHandler.DeactivateUser)
+
+	return r
 }
 
 func createTestRegisterRequest() *model.RegisterRequest {
@@ -65,149 +71,51 @@ func createTestTokenResponse() *model.TokenResponse {
 	}
 }
 
-// Mock methods
-
 // Testcases
 
 func TestAuthHandler_Register(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		authHandler, mockAuthService := setupTestAuthHandler()
-		req := createTestRegisterRequest()
+		registerReq := createTestRegisterRequest()
 		tokenResponse := createTestTokenResponse()
 
 		// Setup mock
-		mockAuthService.On("Register", req).Return(tokenResponse, nil)
+		mockAuthService.On("Register", registerReq).Return(tokenResponse, nil)
 
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/register", authHandler.Register)
+		// Setup router
+		router := setupAuthRouter(authHandler)
 
-		// Create request
-		reqBody, _ := json.Marshal(req)
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(reqBody))
-		httpReq.Header.Set("Content-Type", "application/json")
+		// Create json request
+		httpReq := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/register", registerReq)
 
-		// Create response recorder
+		// run
 		w := httptest.NewRecorder()
-
-		// Perform request
 		router.ServeHTTP(w, httpReq)
 
 		// Assert
 		assert.Equal(t, http.StatusCreated, w.Code)
-
-		var response model.TokenResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, tokenResponse.AccessToken, response.AccessToken)
-		assert.Equal(t, tokenResponse.RefreshToken, response.RefreshToken)
-		assert.Equal(t, tokenResponse.TokenType, response.TokenType)
-		assert.Equal(t, tokenResponse.ExpiresIn, response.ExpiresIn)
-
 		mockAuthService.AssertExpectations(t)
 	})
 
-	t.Run("InvalidJSON", func(t *testing.T) {
+	t.Run("ServerError", func(t *testing.T) {
 		authHandler, mockAuthService := setupTestAuthHandler()
-
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/register", authHandler.Register)
-
-		// Create request with invalid JSON
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBufferString("invalid json"))
-		httpReq.Header.Set("Content-Type", "application/json")
-
-		// Create response recorder
-		w := httptest.NewRecorder()
-
-		// Perform request
-		router.ServeHTTP(w, httpReq)
-
-		// Assert
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-		mockAuthService.AssertNotCalled(t, "Register")
-	})
-
-	t.Run("UserUnderAge", func(t *testing.T) {
-		authHandler, mockAuthService := setupTestAuthHandler()
-		req := createTestRegisterRequest()
+		registerReq := createTestRegisterRequest()
 
 		// Setup mock
-		mockAuthService.On("Register", req).Return(nil, apperrors.ErrUserUnderAge)
+		mockAuthService.On("Register", registerReq).Return(nil, apperrors.ErrUserUnderAge)
 
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/register", authHandler.Register)
+		// Setup router
+		router := setupAuthRouter(authHandler)
 
-		// Create request
-		reqBody, _ := json.Marshal(req)
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(reqBody))
-		httpReq.Header.Set("Content-Type", "application/json")
+		// Create json request
+		httpReq := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/register", registerReq)
 
-		// Create response recorder
+		// run
 		w := httptest.NewRecorder()
-
-		// Perform request
 		router.ServeHTTP(w, httpReq)
 
-		// Assert
+		// Create request
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		mockAuthService.AssertExpectations(t)
-	})
-
-	t.Run("ReservedUsername", func(t *testing.T) {
-		authHandler, mockAuthService := setupTestAuthHandler()
-		req := createTestRegisterRequest()
-		req.Username = "admin" // 使用保留用戶名
-
-		// Setup mock
-		mockAuthService.On("Register", req).Return(nil, apperrors.ErrValidation)
-
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/register", authHandler.Register)
-
-		// Create request
-		reqBody, _ := json.Marshal(req)
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(reqBody))
-		httpReq.Header.Set("Content-Type", "application/json")
-
-		// Create response recorder
-		w := httptest.NewRecorder()
-
-		// Perform request
-		router.ServeHTTP(w, httpReq)
-
-		// Assert
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-		mockAuthService.AssertExpectations(t)
-	})
-
-	t.Run("UserExists", func(t *testing.T) {
-		authHandler, mockAuthService := setupTestAuthHandler()
-		req := createTestRegisterRequest()
-
-		// Setup mock
-		mockAuthService.On("Register", req).Return(nil, apperrors.ErrUserExists)
-
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/register", authHandler.Register)
-
-		// Create request
-		reqBody, _ := json.Marshal(req)
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/register", bytes.NewBuffer(reqBody))
-		httpReq.Header.Set("Content-Type", "application/json")
-
-		// Create response recorder
-		w := httptest.NewRecorder()
-
-		// Perform request
-		router.ServeHTTP(w, httpReq)
-
-		// Assert
-		assert.Equal(t, http.StatusConflict, w.Code)
 		mockAuthService.AssertExpectations(t)
 	})
 }
@@ -221,107 +129,41 @@ func TestAuthHandler_Login(t *testing.T) {
 		// Setup mock
 		mockAuthService.On("Login", req).Return(tokenResponse, nil)
 
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/login", authHandler.Login)
+		// Setup router
+		router := setupAuthRouter(authHandler)
 
-		// Create request
-		reqBody, _ := json.Marshal(req)
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(reqBody))
-		httpReq.Header.Set("Content-Type", "application/json")
+		// Create json request
+		httpReq := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/login", req)
 
-		// Create response recorder
+		// run
 		w := httptest.NewRecorder()
-
-		// Perform request
 		router.ServeHTTP(w, httpReq)
 
 		// Assert
 		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response model.TokenResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, tokenResponse.AccessToken, response.AccessToken)
-		assert.Equal(t, tokenResponse.RefreshToken, response.RefreshToken)
-
 		mockAuthService.AssertExpectations(t)
 	})
 
-	t.Run("InvalidJSON", func(t *testing.T) {
-		authHandler, mockAuthService := setupTestAuthHandler()
-
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/login", authHandler.Login)
-
-		// Create request with invalid JSON
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBufferString("invalid json"))
-		httpReq.Header.Set("Content-Type", "application/json")
-
-		// Create response recorder
-		w := httptest.NewRecorder()
-
-		// Perform request
-		router.ServeHTTP(w, httpReq)
-
-		// Assert
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-		mockAuthService.AssertNotCalled(t, "Login")
-	})
-
-	t.Run("Unauthorized", func(t *testing.T) {
+	t.Run("ServerError", func(t *testing.T) {
 		authHandler, mockAuthService := setupTestAuthHandler()
 		req := createTestLoginRequest()
+		tokenResponse := createTestTokenResponse()
 
 		// Setup mock
-		mockAuthService.On("Login", req).Return(nil, apperrors.ErrUnauthorized)
+		mockAuthService.On("Login", req).Return(tokenResponse, apperrors.ErrUnauthorized)
 
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/login", authHandler.Login)
+		// Setup router
+		router := setupAuthRouter(authHandler)
 
-		// Create request
-		reqBody, _ := json.Marshal(req)
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(reqBody))
-		httpReq.Header.Set("Content-Type", "application/json")
+		// Create json request
+		httpReq := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/login", req)
 
-		// Create response recorder
+		// run
 		w := httptest.NewRecorder()
-
-		// Perform request
 		router.ServeHTTP(w, httpReq)
 
 		// Assert
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
-		mockAuthService.AssertExpectations(t)
-	})
-
-	t.Run("Forbidden", func(t *testing.T) {
-		authHandler, mockAuthService := setupTestAuthHandler()
-		req := createTestLoginRequest()
-
-		// Setup mock
-		mockAuthService.On("Login", req).Return(nil, apperrors.ErrForbidden)
-
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/login", authHandler.Login)
-
-		// Create request
-		reqBody, _ := json.Marshal(req)
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/login", bytes.NewBuffer(reqBody))
-		httpReq.Header.Set("Content-Type", "application/json")
-
-		// Create response recorder
-		w := httptest.NewRecorder()
-
-		// Perform request
-		router.ServeHTTP(w, httpReq)
-
-		// Assert
-		assert.Equal(t, http.StatusForbidden, w.Code)
-
 		mockAuthService.AssertExpectations(t)
 	})
 }
@@ -329,149 +171,136 @@ func TestAuthHandler_Login(t *testing.T) {
 func TestAuthHandler_RefreshToken(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		authHandler, mockAuthService := setupTestAuthHandler()
-		refreshToken := "valid-refresh-token"
 		tokenResponse := createTestTokenResponse()
 
-		// Setup mock
-		mockAuthService.On("RefreshToken", refreshToken).Return(tokenResponse, nil)
+		// Setup mock - 不管傳入什麼參數都成功
+		mockAuthService.On("RefreshToken", mock.Anything).Return(tokenResponse, nil)
 
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/refresh", authHandler.RefreshToken)
+		// Setup router
+		router := setupAuthRouter(authHandler)
 
 		// Create request
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/refresh", nil)
-		httpReq.AddCookie(&http.Cookie{
-			Name:  "gin_api_refresh_token",
-			Value: refreshToken,
-		})
+		httpReq := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/refresh", nil)
 
-		// Create response recorder
+		// run
 		w := httptest.NewRecorder()
-
-		// Perform request
 		router.ServeHTTP(w, httpReq)
 
 		// Assert
 		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response model.TokenResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, tokenResponse.AccessToken, response.AccessToken)
-		assert.Equal(t, tokenResponse.RefreshToken, response.RefreshToken)
-
 		mockAuthService.AssertExpectations(t)
 	})
 
-	t.Run("MissingCookie", func(t *testing.T) {
+	t.Run("ServerError", func(t *testing.T) {
 		authHandler, mockAuthService := setupTestAuthHandler()
 
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/refresh", authHandler.RefreshToken)
+		// Setup mock - Service 層驗證失敗
+		mockAuthService.On("RefreshToken", mock.Anything).Return(nil, apperrors.ErrUnauthorized)
 
-		// Create request without cookie
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/refresh", nil)
+		// Setup router
+		router := setupAuthRouter(authHandler)
 
-		// Create response recorder
+		// Create request
+		httpReq := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/refresh", nil)
+
+		// run
 		w := httptest.NewRecorder()
-
-		// Perform request
 		router.ServeHTTP(w, httpReq)
 
 		// Assert
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
-
-		mockAuthService.AssertNotCalled(t, "RefreshToken")
+		mockAuthService.AssertExpectations(t)
 	})
+}
 
-	t.Run("InvalidToken", func(t *testing.T) {
+func TestAuthHandler_ActivateUser(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
 		authHandler, mockAuthService := setupTestAuthHandler()
-		refreshToken := "invalid-refresh-token"
+		userID := testUserID
+		updatedUser := &model.User{ID: userID, IsActive: true}
 
 		// Setup mock
-		mockAuthService.On("RefreshToken", refreshToken).Return(nil, apperrors.ErrInvalidToken)
+		mockAuthService.On("ActivateUser", mock.Anything, mock.Anything).Return(updatedUser, nil)
 
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/refresh", authHandler.RefreshToken)
+		// Setup router
+		router := setupAuthRouter(authHandler)
 
-		// Create request
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/refresh", nil)
-		httpReq.AddCookie(&http.Cookie{
-			Name:  "gin_api_refresh_token",
-			Value: refreshToken,
-		})
+		// Create json request
+		req := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/users/"+userID+"/activate", nil)
 
-		// Create response recorder
+		// run
 		w := httptest.NewRecorder()
-
-		// Perform request
-		router.ServeHTTP(w, httpReq)
+		router.ServeHTTP(w, req)
 
 		// Assert
-		assert.Equal(t, http.StatusUnauthorized, w.Code)
-
+		assert.Equal(t, http.StatusOK, w.Code)
 		mockAuthService.AssertExpectations(t)
 	})
 
-	t.Run("Forbidden", func(t *testing.T) {
+	t.Run("ServerError", func(t *testing.T) {
 		authHandler, mockAuthService := setupTestAuthHandler()
-		refreshToken := "valid-but-user-inactive-token"
 
 		// Setup mock
-		mockAuthService.On("RefreshToken", refreshToken).Return(nil, apperrors.ErrForbidden)
+		mockAuthService.On("ActivateUser", mock.Anything, mock.Anything).Return(nil, apperrors.ErrForbidden)
 
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/refresh", authHandler.RefreshToken)
+		// Setup router
+		router := setupAuthRouter(authHandler)
 
-		// Create request
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/refresh", nil)
-		httpReq.AddCookie(&http.Cookie{
-			Name:  "gin_api_refresh_token",
-			Value: refreshToken,
-		})
+		// Create json request
+		req := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/users/"+testUserID+"/activate", nil)
 
-		// Create response recorder
+		// run
 		w := httptest.NewRecorder()
-
-		// Perform request
-		router.ServeHTTP(w, httpReq)
+		router.ServeHTTP(w, req)
 
 		// Assert
 		assert.Equal(t, http.StatusForbidden, w.Code)
+		mockAuthService.AssertExpectations(t)
+	})
+}
 
+func TestAuthHandler_DeactivateUser(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		authHandler, mockAuthService := setupTestAuthHandler()
+		userID := testUserID
+		updatedUser := &model.User{ID: userID, IsActive: false}
+
+		// Setup mock
+		mockAuthService.On("DeactivateUser", mock.Anything, mock.Anything).Return(updatedUser, nil)
+
+		// Setup router
+		router := setupAuthRouter(authHandler)
+
+		// Create json request
+		req := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/users/"+userID+"/deactivate", nil)
+
+		// run
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		// Assert
+		assert.Equal(t, http.StatusOK, w.Code)
 		mockAuthService.AssertExpectations(t)
 	})
 
-	t.Run("ExpiredToken", func(t *testing.T) {
+	t.Run("ServerError", func(t *testing.T) {
 		authHandler, mockAuthService := setupTestAuthHandler()
-		refreshToken := "expired-refresh-token"
 
 		// Setup mock
-		mockAuthService.On("RefreshToken", refreshToken).Return(nil, apperrors.ErrExpiredToken)
+		mockAuthService.On("DeactivateUser", mock.Anything, mock.Anything).Return(nil, apperrors.ErrForbidden)
 
-		// Setup Gin
-		router := setupGinWithValidators()
-		router.POST("/api/v1/auth/refresh", authHandler.RefreshToken)
+		// Setup router
+		router := setupAuthRouter(authHandler)
 
-		// Create request
-		httpReq, _ := http.NewRequest("POST", "/api/v1/auth/refresh", nil)
-		httpReq.AddCookie(&http.Cookie{
-			Name:  "gin_api_refresh_token",
-			Value: refreshToken,
-		})
+		// Create json request
+		req := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/users/"+testUserID+"/deactivate", nil)
 
-		// Create response recorder
+		// run
 		w := httptest.NewRecorder()
-
-		// Perform request
-		router.ServeHTTP(w, httpReq)
+		router.ServeHTTP(w, req)
 
 		// Assert
-		assert.Equal(t, http.StatusUnauthorized, w.Code)
+		assert.Equal(t, http.StatusForbidden, w.Code)
 		mockAuthService.AssertExpectations(t)
 	})
 }

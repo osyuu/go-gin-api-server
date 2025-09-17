@@ -104,7 +104,7 @@ func TestJWTManager_ValidateToken(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, claims)
 		assert.Equal(t, "user-123", claims.UserID)
-		assert.Equal(t, "go-gin-api-server", claims.Issuer)
+		assert.Equal(t, utils.JWTIssuer, claims.Issuer)
 		assert.Equal(t, "user-123", claims.Subject)
 	})
 
@@ -240,7 +240,7 @@ func TestJWTManager_TokenConsistency(t *testing.T) {
 		claims, err := jwtMgr.ValidateToken(accessToken)
 		assert.NoError(t, err)
 		assert.Equal(t, user.ID, claims.UserID)
-		assert.Equal(t, "go-gin-api-server", claims.Issuer)
+		assert.Equal(t, utils.JWTIssuer, claims.Issuer)
 		assert.Equal(t, user.ID, claims.Subject)
 	})
 }

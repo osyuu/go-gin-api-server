@@ -16,4 +16,9 @@ var (
 	// auth errors
 	ErrInvalidToken = errors.New("invalid token")
 	ErrExpiredToken = errors.New("token has expired")
+
+	// post errors
+	ErrPostContentTooLong        = errors.New("post content too long")
+	ErrPostContentTooShort       = errors.New("post content too short")
+	ErrPostContentSensitiveWords = errors.New("post content contains sensitive words")
 )

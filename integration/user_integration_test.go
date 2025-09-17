@@ -1,16 +1,16 @@
 package integration
 
 import (
-	"encoding/json"
 	"go-gin-api-server/internal/handler"
+	"go-gin-api-server/internal/middleware"
+	"go-gin-api-server/internal/model"
 	"go-gin-api-server/internal/repository"
 	"go-gin-api-server/internal/service"
+	"go-gin-api-server/pkg/logger"
 	"go-gin-api-server/pkg/utils"
-	"io"
 	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -20,85 +20,112 @@ import (
 )
 
 func setupIntegrationUserRouter(db *gorm.DB) *gin.Engine {
-	repo := repository.NewUserRepositoryWithDB(db)
-	userService := service.NewUserService(repo)
-	userHandler := handler.NewUserHandler(userService)
-	r := gin.Default()
+	// Setup dependencies
+	userRepo := repository.NewUserRepositoryWithDB(db)
+	authRepo := repository.NewAuthRepositoryWithDB(db)
+
+	// Setup services
+	userService := service.NewUserService(userRepo)
+	authService := service.NewAuthService(userRepo, authRepo, globalJWTManager)
+
+	// Setup handlers
+	userHandler := handler.NewUserHandler(userService, logger.Log)
+
+	// Setup middleware
+	authMiddleware := middleware.NewAuthMiddleware(authService)
+
+	// Setup router
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
 
 	// Register custom validator
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		v.RegisterValidation("username", utils.UsernameValidator)
+		utils.RegisterCustomValidators(v)
 	}
 
-	r.GET("/users/:id", userHandler.GetUserByID)
-	r.POST("/users", userHandler.CreateUser)
+	// Register routes
+	userHandler.RegisterRoutes(r)
+	userHandler.RegisterProtectedRoutes(r, authMiddleware)
+
 	return r
 }
 
-func TestIntegration_UserService_Success(t *testing.T) {
+func TestUserIntegration_UserLifecycle(t *testing.T) {
 	db := setup()
 	defer teardown(db)
+	router := setupIntegrationUserRouter(db)
 
-	gin.SetMode(gin.TestMode)
+	// 1. Create user and token
+	user := createTestUser(t, db)
+	token := createTestToken(t, user)
+	accessToken := token.AccessToken
 
-	r := setupIntegrationUserRouter(db)
-	ts := httptest.NewServer(r)
-	defer ts.Close()
+	// 2. Get user profile (public route)
+	profileResp := makeHTTPRequest(t, router, "GET", "/api/v1/users/profile/"+*user.Username, nil, "")
+	assert.Equal(t, http.StatusOK, profileResp.Code)
 
-	// 1. create a user
-	createResp, err := http.Post(ts.URL+"/users", "application/json",
-		strings.NewReader(`{"name":"John Doe","username":"john_doe","email":"john@example.com"}`))
+	var profile model.UserProfile
+	parseJSONResponse(t, profileResp, &profile)
+	assert.Equal(t, *user.Username, *profile.Username)
+	assert.Equal(t, user.Name, profile.Name)
+	assert.Equal(t, user.BirthDate.UTC(), profile.BirthDate.UTC())
 
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+	// 3. Get user by ID (protected route)
+	userByIDResp := makeHTTPRequest(t, router, "GET", "/api/v1/users/"+user.ID, nil, accessToken)
+	assert.Equal(t, http.StatusOK, userByIDResp.Code)
 
-	// 2. parse the created user response to get the actual user ID
-	var createdUser map[string]interface{}
-	err = json.NewDecoder(createResp.Body).Decode(&createdUser)
-	createResp.Body.Close()
-	assert.NoError(t, err)
+	// 4. Get user by username (protected route)
+	userByUsernameResp := makeHTTPRequest(t, router, "GET", "/api/v1/users/username/"+*user.Username, nil, accessToken)
+	assert.Equal(t, http.StatusOK, userByUsernameResp.Code)
 
-	userID, ok := createdUser["id"].(string)
-	assert.True(t, ok, "User ID should be a string")
-	assert.NotEmpty(t, userID, "User ID should not be empty")
+	// 5. Get user by email (protected route)
+	userByEmailResp := makeHTTPRequest(t, router, "GET", "/api/v1/users/email/"+*user.Email, nil, accessToken)
+	assert.Equal(t, http.StatusOK, userByEmailResp.Code)
 
-	// 3. query the user using the actual user ID
-	resp, err := http.Get(ts.URL + "/users/" + userID)
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	// 6. Update user profile (protected route)
+	updateReq := map[string]interface{}{
+		"name":       "Updated User",
+		"birth_date": time.Date(1995, 1, 1, 0, 0, 0, 0, time.UTC),
+	}
+	updateResp := makeHTTPRequest(t, router, "PATCH", "/api/v1/users/"+user.ID, updateReq, accessToken)
+	assert.Equal(t, http.StatusOK, updateResp.Code)
 
-	// 4. check the response data
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-
-	// Verify the response contains the expected user data
-	var responseUser map[string]interface{}
-	err = json.Unmarshal(body, &responseUser)
-	assert.NoError(t, err)
-
-	assert.Equal(t, userID, responseUser["id"])
-	assert.Equal(t, "John Doe", responseUser["name"])
-	assert.Equal(t, "john_doe", responseUser["username"])
-	assert.Equal(t, "john@example.com", responseUser["email"])
-	assert.Equal(t, true, responseUser["is_active"])
+	var updatedUser model.User
+	parseJSONResponse(t, updateResp, &updatedUser)
+	assert.Equal(t, "Updated User", updatedUser.Name)
+	assert.Equal(t, time.Date(1995, 1, 1, 0, 0, 0, 0, time.UTC).UTC(), updatedUser.BirthDate.UTC())
+	assert.True(t, updatedUser.UpdatedAt.UTC().After(updatedUser.CreatedAt.UTC()))
 }
 
-func TestIntegration_UserService_NotFound(t *testing.T) {
+func TestUserIntegration_Unauthorized(t *testing.T) {
 	db := setup()
 	defer teardown(db)
+	router := setupIntegrationUserRouter(db)
 
-	gin.SetMode(gin.TestMode)
+	// Create test user for the endpoints
+	user := createTestUser(t, db)
 
-	r := setupIntegrationUserRouter(db)
-	ts := httptest.NewServer(r)
-	defer ts.Close()
+	// Test unauthorized access to all protected routes
+	t.Run("GetUserByID_Unauthorized", func(t *testing.T) {
+		resp := makeHTTPRequest(t, router, "GET", "/api/v1/users/"+user.ID, nil, "")
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
 
-	resp, err := http.Get(ts.URL + "/users/999")
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	t.Run("GetUserByUsername_Unauthorized", func(t *testing.T) {
+		resp := makeHTTPRequest(t, router, "GET", "/api/v1/users/username/"+*user.Username, nil, "")
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
 
-	// check response body
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	assert.JSONEq(t, `{"error":"User not found"}`, string(body))
+	t.Run("GetUserByEmail_Unauthorized", func(t *testing.T) {
+		resp := makeHTTPRequest(t, router, "GET", "/api/v1/users/email/"+*user.Email, nil, "")
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+
+	t.Run("UpdateUserProfile_Unauthorized", func(t *testing.T) {
+		updateReq := map[string]interface{}{
+			"name": "Updated User",
+		}
+		resp := makeHTTPRequest(t, router, "PATCH", "/api/v1/users/"+user.ID, updateReq, "")
+		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
 }

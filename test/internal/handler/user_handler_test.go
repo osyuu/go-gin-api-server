@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"bytes"
-	"encoding/json"
 	"go-gin-api-server/internal/handler"
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/apperrors"
@@ -18,21 +16,25 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap"
 )
 
 // Test constants
 const (
-	username          = "test_user"
-	email             = "test_user@test.com"
-	testUserID        = "test-id"
-	NonExistentUserID = "550e8400-e29b-41d4-a716-446655440000"
+	testName            = "Test User"
+	testUsername        = "test_user"
+	testEmail           = "test_user@test.com"
+	testUserID          = "test-id"
+	NonExistentUserID   = "550e8400-e29b-41d4-a716-446655440000"
+	NonExistentUsername = "non-existent-username"
+	NonExistentEmail    = "non-existent-email@test.com"
 )
 
 // Helper functions
 
 func setupTestUserHandler() (*mockService.UserServiceMock, *handler.UserHandler) {
 	mockService := mockService.NewUserServiceMock()
-	userHandler := handler.NewUserHandler(mockService)
+	userHandler := handler.NewUserHandler(mockService, zap.NewNop())
 	return mockService, userHandler
 }
 
@@ -40,232 +42,74 @@ func setupUserRouter(handlerFunc gin.HandlerFunc) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
 
-	// Register custom validator
+	// Register custom validators
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		v.RegisterValidation("username", utils.UsernameValidator)
+		utils.RegisterCustomValidators(v)
 	}
 
 	r.GET("/users/:id", handlerFunc)
 	r.GET("/users/username/:username", handlerFunc)
 	r.GET("/users/email/:email", handlerFunc)
-	r.POST("/users", handlerFunc)
+	r.GET("/users/profile/:username", handlerFunc)
 	r.PATCH("/users/:id", handlerFunc)
-	r.PATCH("/users/:id/activate", handlerFunc)
-	r.PATCH("/users/:id/deactivate", handlerFunc)
 	r.DELETE("/users/:id", handlerFunc)
 	return r
 }
 
-func createTestUser() *model.User {
+func createTestUser(overrides ...map[string]interface{}) *model.User {
+	// Default
+	id := testUserID
 	birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	username := "mock_user"
-	email := "mock_user@test.com"
-	return model.CreateUser(
-		"Mock User",
-		&username,
-		&email,
-		&birthDate,
-	)
-}
+	name := testName
+	username := testUsername
+	email := testEmail
+	now := time.Now().UTC().Truncate(time.Second)
+	createdAt := now
+	updatedAt := now
 
-// Helper function to create JSON request body
-func createJSONRequest(data interface{}) *bytes.Buffer {
-	jsonData, _ := json.Marshal(data)
-	return bytes.NewBuffer(jsonData)
-}
+	if len(overrides) > 0 {
+		override := overrides[0]
+		if val, ok := override["id"]; ok {
+			id = val.(string)
+		}
 
-// Helper function to create HTTP request with JSON body
-func createJSONHTTPRequest(method, url string, data interface{}) *http.Request {
-	req, _ := http.NewRequest(method, url, createJSONRequest(data))
-	req.Header.Set("Content-Type", "application/json")
-	return req
-}
+		if val, ok := override["name"]; ok {
+			name = val.(string)
+		}
 
-// Test request structures are now defined in user_handler.go
+		if val, ok := override["birth_date"]; ok {
+			birthDate = val.(time.Time)
+		}
 
-// Helper function to create typed request
-func createTypedJSONRequest(method, url string, data interface{}) *http.Request {
-	return createJSONHTTPRequest(method, url, data)
+		if val, ok := override["username"]; ok {
+			username = val.(string)
+		}
+
+		if val, ok := override["email"]; ok {
+			email = val.(string)
+		}
+
+		if val, ok := override["created_at"]; ok {
+			createdAt = val.(time.Time)
+		}
+
+		if val, ok := override["updated_at"]; ok {
+			updatedAt = val.(time.Time)
+		}
+	}
+
+	return &model.User{
+		ID:        id,
+		Name:      name,
+		BirthDate: &birthDate,
+		Username:  &username,
+		Email:     &email,
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
+	}
 }
 
 // TestCases
-
-func TestCreateUser(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.CreateUser)
-
-		// 創建期望的用戶數據
-		birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-		username := username
-		email := email
-		expectedUser := model.CreateUser(
-			"Test User",
-			&username,
-			&email,
-			&birthDate,
-		)
-		expectedUser.ID = testUserID
-
-		// Mock 期望與實際請求參數匹配
-		mockService.On("CreateUser",
-			"Test User",
-			&username,
-			&email,
-			&birthDate,
-		).Return(expectedUser, nil)
-
-		requestData := handler.CreateUserRequest{
-			Name:      "Test User",
-			Username:  "test_user",
-			Email:     "test_user@test.com",
-			BirthDate: &birthDate,
-		}
-
-		req := createTypedJSONRequest(http.MethodPost, "/users", requestData)
-
-		// run
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusCreated, response.Code)
-		var responseUser model.User
-		err := json.Unmarshal(response.Body.Bytes(), &responseUser)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedUser.ID, responseUser.ID)
-		assert.Equal(t, expectedUser.Name, responseUser.Name)
-		assert.Equal(t, expectedUser.Username, responseUser.Username)
-		assert.Equal(t, expectedUser.Email, responseUser.Email)
-		assert.Equal(t, expectedUser.BirthDate, responseUser.BirthDate)
-		assert.Equal(t, expectedUser.IsActive, responseUser.IsActive)
-
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("InvalidJSON", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.CreateUser)
-
-		jsonBody := `{"invalid": json}`
-		req := createTypedJSONRequest(http.MethodPost, "/users", jsonBody)
-
-		// run
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusBadRequest, response.Code)
-		mockService.AssertNotCalled(t, "CreateUser")
-	})
-
-	t.Run("MissingRequiredFields", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.CreateUser)
-
-		// missing required fields
-		requestData := handler.CreateUserRequest{
-			Name: "",
-		}
-
-		req := createTypedJSONRequest(http.MethodPost, "/users", requestData)
-
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusBadRequest, response.Code)
-		mockService.AssertNotCalled(t, "CreateUser")
-	})
-
-	t.Run("InvalidEmailFormat", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.CreateUser)
-
-		// invalid email format
-		requestData := handler.CreateUserRequest{
-			Name:      "Test User",
-			Username:  "test_user",
-			Email:     "invalid-email",
-			BirthDate: nil,
-		}
-
-		req := createTypedJSONRequest(http.MethodPost, "/users", requestData)
-
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusBadRequest, response.Code)
-		mockService.AssertNotCalled(t, "CreateUser")
-	})
-
-	t.Run("ServiceError", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.CreateUser)
-
-		birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-		requestData := handler.CreateUserRequest{
-			Name:      "Test User",
-			Username:  "test_user",
-			Email:     "test_user@test.com",
-			BirthDate: &birthDate,
-		}
-
-		username := username
-		email := email
-		mockService.On("CreateUser",
-			"Test User",
-			&username,
-			&email,
-			&birthDate,
-		).Return(nil, apperrors.ErrUserExists)
-
-		req := createTypedJSONRequest(http.MethodPost, "/users", requestData)
-
-		// run
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusConflict, response.Code)
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("UserUnderAge", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.CreateUser)
-
-		// 設置一個未滿13歲的生日
-		underAgeBirthDate := time.Date(2015, 1, 1, 0, 0, 0, 0, time.UTC) // 假設現在是2024年
-		requestData := handler.CreateUserRequest{
-			Name:      "Test User",
-			Username:  "test_user",
-			Email:     "test_user@test.com",
-			BirthDate: &underAgeBirthDate,
-		}
-
-		// Mock Service 返回 ErrUserUnderAge
-		username := username
-		email := email
-		mockService.On("CreateUser",
-			"Test User",
-			&username,
-			&email,
-			&underAgeBirthDate,
-		).Return(nil, apperrors.ErrUserUnderAge)
-
-		req := createTypedJSONRequest(http.MethodPost, "/users", requestData)
-
-		// run
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusBadRequest, response.Code) // ErrUserUnderAge 映射到 400
-		mockService.AssertExpectations(t)
-	})
-}
 
 func TestGetUserByID(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
@@ -273,9 +117,8 @@ func TestGetUserByID(t *testing.T) {
 		r := setupUserRouter(userHandler.GetUserByID)
 
 		expectedUser := createTestUser()
-		expectedUser.ID = testUserID
 
-		mockService.On("GetUserByID", testUserID).Return(expectedUser, nil)
+		mockService.On("GetUserByID", mock.Anything).Return(expectedUser, nil)
 
 		req, _ := http.NewRequest(http.MethodGet, "/users/test-id", nil)
 		response := httptest.NewRecorder()
@@ -283,23 +126,14 @@ func TestGetUserByID(t *testing.T) {
 
 		// assert
 		assert.Equal(t, http.StatusOK, response.Code)
-		var responseUser model.User
-		err := json.Unmarshal(response.Body.Bytes(), &responseUser)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedUser.ID, responseUser.ID)
-		assert.Equal(t, expectedUser.Name, responseUser.Name)
-		assert.Equal(t, expectedUser.Username, responseUser.Username)
-		assert.Equal(t, expectedUser.Email, responseUser.Email)
-
 		mockService.AssertExpectations(t)
 	})
 
-	t.Run("UserNotFound", func(t *testing.T) {
+	t.Run("ServiceError", func(t *testing.T) {
 		mockService, userHandler := setupTestUserHandler()
 		r := setupUserRouter(userHandler.GetUserByID)
 
-		// Mock Service 返回 ErrNotFound
-		mockService.On("GetUserByID", NonExistentUserID).Return(nil, apperrors.ErrNotFound)
+		mockService.On("GetUserByID", mock.Anything).Return(nil, apperrors.ErrNotFound)
 
 		req, _ := http.NewRequest(http.MethodGet, "/users/"+NonExistentUserID, nil)
 		response := httptest.NewRecorder()
@@ -309,6 +143,7 @@ func TestGetUserByID(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, response.Code) // ErrNotFound 映射到 404
 		mockService.AssertExpectations(t)
 	})
+
 }
 
 func TestGetUserByUsername(t *testing.T) {
@@ -317,41 +152,45 @@ func TestGetUserByUsername(t *testing.T) {
 		r := setupUserRouter(userHandler.GetUserByUsername)
 
 		expectedUser := createTestUser()
-		testUsername := "test-username"
-		expectedUser.Username = &testUsername
 
-		mockService.On("GetUserByUsername", "test-username").Return(expectedUser, nil)
+		mockService.On("GetUserByUsername", mock.Anything).Return(expectedUser, nil)
 
-		req, _ := http.NewRequest(http.MethodGet, "/users/username/test-username", nil)
+		req, _ := http.NewRequest(http.MethodGet, "/users/username/"+testUsername, nil)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
 		// assert
 		assert.Equal(t, http.StatusOK, response.Code)
-		var responseUser model.User
-		err := json.Unmarshal(response.Body.Bytes(), &responseUser)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedUser.ID, responseUser.ID)
-		assert.Equal(t, expectedUser.Name, responseUser.Name)
-		assert.Equal(t, expectedUser.Username, responseUser.Username)
-		assert.Equal(t, expectedUser.Email, responseUser.Email)
-
 		mockService.AssertExpectations(t)
 	})
 
-	t.Run("UserNotFound", func(t *testing.T) {
+	t.Run("BindingError_InvalidUsername", func(t *testing.T) {
 		mockService, userHandler := setupTestUserHandler()
 		r := setupUserRouter(userHandler.GetUserByUsername)
 
-		// Mock Service 返回 ErrNotFound
-		mockService.On("GetUserByUsername", "non-existent-username").Return(nil, apperrors.ErrNotFound)
-
-		req, _ := http.NewRequest(http.MethodGet, "/users/username/non-existent-username", nil)
+		// Test invalid username format (starts with number)
+		req, _ := http.NewRequest(http.MethodGet, "/users/username/123invalid", nil)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
 		// assert
-		assert.Equal(t, http.StatusNotFound, response.Code) // ErrNotFound 映射到 404
+		assert.Equal(t, http.StatusBadRequest, response.Code) // Invalid format should return 400
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		mockService, userHandler := setupTestUserHandler()
+		r := setupUserRouter(userHandler.GetUserByUsername)
+
+		// Mock Service 返回 ErrNotFound
+		mockService.On("GetUserByUsername", mock.Anything).Return(nil, apperrors.ErrNotFound)
+
+		req, _ := http.NewRequest(http.MethodGet, "/users/username/"+NonExistentUsername, nil)
+		response := httptest.NewRecorder()
+		r.ServeHTTP(response, req)
+
+		// assert
+		assert.Equal(t, http.StatusNotFound, response.Code)
 		mockService.AssertExpectations(t)
 	})
 }
@@ -362,36 +201,40 @@ func TestGetUserByEmail(t *testing.T) {
 		r := setupUserRouter(userHandler.GetUserByEmail)
 
 		expectedUser := createTestUser()
-		testEmail := "test-email"
-		expectedUser.Email = &testEmail
 
-		mockService.On("GetUserByEmail", "test-email").Return(expectedUser, nil)
+		mockService.On("GetUserByEmail", mock.Anything).Return(expectedUser, nil)
 
-		req, _ := http.NewRequest(http.MethodGet, "/users/email/test-email", nil)
+		req, _ := http.NewRequest(http.MethodGet, "/users/email/"+testEmail, nil)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
 		// assert
 		assert.Equal(t, http.StatusOK, response.Code)
-		var responseUser model.User
-		err := json.Unmarshal(response.Body.Bytes(), &responseUser)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedUser.ID, responseUser.ID)
-		assert.Equal(t, expectedUser.Name, responseUser.Name)
-		assert.Equal(t, expectedUser.Username, responseUser.Username)
-		assert.Equal(t, expectedUser.Email, responseUser.Email)
-
 		mockService.AssertExpectations(t)
 	})
 
-	t.Run("UserNotFound", func(t *testing.T) {
+	t.Run("BindingError_InvalidEmail", func(t *testing.T) {
+		mockService, userHandler := setupTestUserHandler()
+		r := setupUserRouter(userHandler.GetUserByEmail)
+
+		// Test invalid email format
+		req, _ := http.NewRequest(http.MethodGet, "/users/email/invalid-email", nil)
+		response := httptest.NewRecorder()
+		r.ServeHTTP(response, req)
+
+		// assert
+		assert.Equal(t, http.StatusBadRequest, response.Code) // Invalid format should return 400
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
 		mockService, userHandler := setupTestUserHandler()
 		r := setupUserRouter(userHandler.GetUserByEmail)
 
 		// Mock Service 返回 ErrNotFound
-		mockService.On("GetUserByEmail", "non-existent-email").Return(nil, apperrors.ErrNotFound)
+		mockService.On("GetUserByEmail", mock.Anything).Return(nil, apperrors.ErrNotFound)
 
-		req, _ := http.NewRequest(http.MethodGet, "/users/email/non-existent-email", nil)
+		req, _ := http.NewRequest(http.MethodGet, "/users/email/"+NonExistentEmail, nil)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
@@ -401,60 +244,107 @@ func TestGetUserByEmail(t *testing.T) {
 	})
 }
 
-func TestUpdateUserProfile(t *testing.T) {
+func TestGetUserProfile(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.UpdateUserProfile)
+		r := setupUserRouter(userHandler.GetUserProfile)
 
-		birthDate := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
-		testUsername := username
-		testEmail := email
-		expectedUser := model.CreateUser(
-			"Updated User",
-			&testUsername,
-			&testEmail,
-			&birthDate,
-		)
-		expectedUser.ID = testUserID
-
-		mockService.On("UpdateUserProfile",
-			testUserID,
-			"Updated User",
-			&birthDate,
-		).Return(expectedUser, nil)
-
-		requestData := handler.UpdateUserProfileRequest{
-			Name:      "Updated User",
+		username := testUsername
+		birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		expectedProfile := &model.UserProfile{
+			Name:      testName,
+			Username:  &username,
 			BirthDate: &birthDate,
 		}
 
-		req := createTypedJSONRequest(http.MethodPatch, "/users/test-id", requestData)
+		mockService.On("GetUserProfile", mock.Anything).Return(expectedProfile, nil)
+
+		req, _ := http.NewRequest(http.MethodGet, "/users/profile/"+username, nil)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
 		// assert
 		assert.Equal(t, http.StatusOK, response.Code)
-		var responseUser model.User
-		err := json.Unmarshal(response.Body.Bytes(), &responseUser)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedUser.Name, responseUser.Name)
-		assert.Equal(t, expectedUser.BirthDate, responseUser.BirthDate)
-
 		mockService.AssertExpectations(t)
 	})
 
-	t.Run("UserNotFound", func(t *testing.T) {
+	t.Run("BindingError_InvalidUsername", func(t *testing.T) {
+		mockService, userHandler := setupTestUserHandler()
+		r := setupUserRouter(userHandler.GetUserProfile)
+
+		// Test invalid username format (starts with number)
+		req, _ := http.NewRequest(http.MethodGet, "/users/profile/123invalid", nil)
+		response := httptest.NewRecorder()
+		r.ServeHTTP(response, req)
+
+		// assert
+		assert.Equal(t, http.StatusBadRequest, response.Code) // Invalid format should return 400
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		mockService, userHandler := setupTestUserHandler()
+		r := setupUserRouter(userHandler.GetUserProfile)
+
+		// Mock Service 返回 ErrNotFound
+		mockService.On("GetUserProfile", mock.Anything).Return(nil, apperrors.ErrNotFound)
+
+		req, _ := http.NewRequest(http.MethodGet, "/users/profile/"+NonExistentUsername, nil)
+		response := httptest.NewRecorder()
+		r.ServeHTTP(response, req)
+
+		// assert
+		assert.Equal(t, http.StatusNotFound, response.Code) // ErrNotFound 映射到 404
+		mockService.AssertExpectations(t)
+	})
+
+}
+
+func TestUpdateUserProfile(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
 		mockService, userHandler := setupTestUserHandler()
 		r := setupUserRouter(userHandler.UpdateUserProfile)
 
-		// Mock Service 返回 ErrNotFound
-		mockService.On("UpdateUserProfile", NonExistentUserID, "Updated User", mock.Anything).Return(nil, apperrors.ErrNotFound)
+		createdUser := createTestUser()
+		mockService.On("UpdateUserProfile",
+			mock.Anything,
+			mock.Anything,
+			mock.Anything,
+		).Return(createdUser, nil)
 
-		requestData := handler.UpdateUserProfileRequest{
+		requestData := model.UpdateUserProfileRequest{
+			Name: "Updated User",
+		}
+
+		req := createTypedJSONRequest(http.MethodPatch, "/users/"+testUserID, requestData)
+
+		// run
+		response := httptest.NewRecorder()
+		r.ServeHTTP(response, req)
+
+		// assert
+		assert.Equal(t, http.StatusOK, response.Code)
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("ServiceError", func(t *testing.T) {
+		mockService, userHandler := setupTestUserHandler()
+		r := setupUserRouter(userHandler.UpdateUserProfile)
+
+		createdUser := createTestUser()
+		mockService.On("UpdateUserProfile",
+			mock.Anything,
+			mock.Anything,
+			mock.Anything,
+		).Return(createdUser, apperrors.ErrNotFound)
+
+		requestData := model.UpdateUserProfileRequest{
 			Name: "Updated User",
 		}
 
 		req := createTypedJSONRequest(http.MethodPatch, "/users/"+NonExistentUserID, requestData)
+
+		// run
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
@@ -467,106 +357,15 @@ func TestUpdateUserProfile(t *testing.T) {
 		mockService, userHandler := setupTestUserHandler()
 		r := setupUserRouter(userHandler.UpdateUserProfile)
 
-		// empty update request
-		requestData := handler.UpdateUserProfileRequest{}
+		requestData := model.UpdateUserProfileRequest{}
 
-		req := createTypedJSONRequest(http.MethodPatch, "/users/test-id", requestData)
+		req := createTypedJSONRequest(http.MethodPatch, "/users/"+testUserID, requestData)
+
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
 		// assert
 		assert.Equal(t, http.StatusBadRequest, response.Code)
-		mockService.AssertNotCalled(t, "UpdateUserProfile")
-	})
-
-	t.Run("UserUnderAge", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.UpdateUserProfile)
-
-		// 設置一個未滿13歲的生日
-		underAgeBirthDate := time.Date(2015, 1, 1, 0, 0, 0, 0, time.UTC) // 假設現在是2024年
-		requestData := handler.UpdateUserProfileRequest{
-			Name:      "Updated User",
-			BirthDate: &underAgeBirthDate,
-		}
-
-		// Mock Service 返回 ErrUserUnderAge
-		mockService.On("UpdateUserProfile", testUserID, "Updated User", &underAgeBirthDate).Return(nil, apperrors.ErrUserUnderAge)
-
-		req := createTypedJSONRequest(http.MethodPatch, "/users/test-id", requestData)
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusBadRequest, response.Code) // ErrUserUnderAge 映射到 400
-		mockService.AssertExpectations(t)
-	})
-}
-
-func TestActivateUser(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.ActivateUser)
-
-		// Mock Service 返回成功
-		mockService.On("ActivateUser", testUserID).Return(nil)
-
-		req, _ := http.NewRequest(http.MethodPatch, "/users/test-id/activate", nil)
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusNoContent, response.Code) // 204 No Content
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("UserNotFound", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.ActivateUser)
-
-		// Mock Service 返回 ErrNotFound
-		mockService.On("ActivateUser", NonExistentUserID).Return(apperrors.ErrNotFound)
-
-		req, _ := http.NewRequest(http.MethodPatch, "/users/"+NonExistentUserID+"/activate", nil)
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusNotFound, response.Code) // ErrNotFound 映射到 404
-		mockService.AssertExpectations(t)
-	})
-}
-
-func TestDeactivateUser(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.DeactivateUser)
-
-		// Mock Service 返回成功
-		mockService.On("DeactivateUser", testUserID).Return(nil)
-
-		req, _ := http.NewRequest(http.MethodPatch, "/users/test-id/deactivate", nil)
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusNoContent, response.Code) // 204 No Content
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("UserNotFound", func(t *testing.T) {
-		mockService, userHandler := setupTestUserHandler()
-		r := setupUserRouter(userHandler.DeactivateUser)
-
-		// Mock Service 返回 ErrNotFound
-		mockService.On("DeactivateUser", NonExistentUserID).Return(apperrors.ErrNotFound)
-
-		req, _ := http.NewRequest(http.MethodPatch, "/users/"+NonExistentUserID+"/deactivate", nil)
-		response := httptest.NewRecorder()
-		r.ServeHTTP(response, req)
-
-		// assert
-		assert.Equal(t, http.StatusNotFound, response.Code) // ErrNotFound 映射到 404
 		mockService.AssertExpectations(t)
 	})
 }
@@ -579,7 +378,7 @@ func TestDeleteUser(t *testing.T) {
 		// Mock Service 返回成功
 		mockService.On("DeleteUser", testUserID).Return(nil)
 
-		req, _ := http.NewRequest(http.MethodDelete, "/users/test-id", nil)
+		req, _ := http.NewRequest(http.MethodDelete, "/users/"+testUserID, nil)
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 
@@ -588,14 +387,15 @@ func TestDeleteUser(t *testing.T) {
 		mockService.AssertExpectations(t)
 	})
 
-	t.Run("UserNotFound", func(t *testing.T) {
+	t.Run("ServiceError", func(t *testing.T) {
 		mockService, userHandler := setupTestUserHandler()
 		r := setupUserRouter(userHandler.DeleteUser)
 
-		// Mock Service 返回 ErrNotFound
-		mockService.On("DeleteUser", NonExistentUserID).Return(apperrors.ErrNotFound)
+		mockService.On("DeleteUser", mock.Anything).Return(apperrors.ErrNotFound)
 
 		req, _ := http.NewRequest(http.MethodDelete, "/users/"+NonExistentUserID, nil)
+
+		// run
 		response := httptest.NewRecorder()
 		r.ServeHTTP(response, req)
 

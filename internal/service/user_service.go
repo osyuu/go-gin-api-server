@@ -12,9 +12,10 @@ type UserService interface {
 	GetUserByID(id string) (*model.User, error)
 	GetUserByUsername(username string) (*model.User, error)
 	GetUserByEmail(email string) (*model.User, error)
-	UpdateUserProfile(userID string, name string, birthDate *time.Time) (*model.User, error)
-	ActivateUser(userID string) error
-	DeactivateUser(userID string) error
+	GetUserProfile(username string) (*model.UserProfile, error)
+	UpdateUserProfile(userID string, currentUserID string, req model.UpdateUserProfileRequest) (*model.User, error)
+
+	// Admin operations
 	DeleteUser(userID string) error
 }
 
@@ -40,17 +41,29 @@ func (s *userServiceImpl) GetUserByEmail(email string) (*model.User, error) {
 	return s.repo.FindByEmail(email)
 }
 
+func (s *userServiceImpl) GetUserProfile(username string) (*model.UserProfile, error) {
+	user, err := s.repo.FindByUsername(username)
+	if err != nil {
+		return nil, err
+	}
+	return &model.UserProfile{
+		Name:      user.Name,
+		Username:  user.Username,
+		BirthDate: user.BirthDate,
+	}, nil
+}
+
 func (s *userServiceImpl) CreateUser(name string, username, email *string, birthDate *time.Time) (*model.User, error) {
 	user := model.CreateUser(name, username, email, birthDate)
 
-	// 業務邏輯驗證：年齡限制（13歲以上）
+	// business logic validation: check if the user is under 13
 	if birthDate != nil {
 		if s.isUnder13(*birthDate) {
 			return nil, apperrors.ErrUserUnderAge
 		}
 	}
 
-	// 業務邏輯驗證：保留用戶名檢查
+	// business logic validation: check if the username is reserved
 	if username != nil && s.isReservedUsername(*username) {
 		return nil, apperrors.ErrValidation // 可以定義更具體的錯誤
 	}
@@ -58,46 +71,40 @@ func (s *userServiceImpl) CreateUser(name string, username, email *string, birth
 	return s.repo.Create(user)
 }
 
-func (s *userServiceImpl) UpdateUserProfile(userID string, name string, birthDate *time.Time) (*model.User, error) {
-	update := &model.User{
-		Name:      name,
-		BirthDate: birthDate,
+func (s *userServiceImpl) UpdateUserProfile(userID string, currentUserID string, req model.UpdateUserProfileRequest) (*model.User, error) {
+
+	// business logic validation: check if the user is the current user
+	if userID != currentUserID {
+		return nil, apperrors.ErrForbidden
 	}
 
-	// 業務邏輯驗證：如果更新生日，檢查年齡限制
-	if birthDate != nil {
-		if s.isUnder13(*birthDate) {
+	// business logic validation: if updating birth date, check if the user is under 13
+	if req.BirthDate != nil {
+		if s.isUnder13(*req.BirthDate) {
 			return nil, apperrors.ErrUserUnderAge
 		}
 	}
 
+	update := &model.User{
+		Name:      req.Name,
+		BirthDate: req.BirthDate,
+	}
+
 	return s.repo.Update(userID, update)
-}
-
-func (s *userServiceImpl) ActivateUser(userID string) error {
-	update := &model.User{IsActive: true}
-	_, err := s.repo.Update(userID, update)
-	return err
-}
-
-func (s *userServiceImpl) DeactivateUser(userID string) error {
-	update := &model.User{IsActive: false}
-	_, err := s.repo.Update(userID, update)
-	return err
 }
 
 func (s *userServiceImpl) DeleteUser(userID string) error {
 	return s.repo.Delete(userID)
 }
 
-// 業務邏輯驗證輔助方法
+// business logic validation helper methods
 
-// isUnder13 檢查用戶是否未滿13歲
+// check if the user is under 13
 func (s *userServiceImpl) isUnder13(birthDate time.Time) bool {
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	age := now.Year() - birthDate.Year()
 
-	// 如果還沒到生日，年齡減1
+	// if the user's birthday hasn't passed yet, subtract 1 from the age
 	if now.YearDay() < birthDate.YearDay() {
 		age--
 	}
@@ -105,7 +112,7 @@ func (s *userServiceImpl) isUnder13(birthDate time.Time) bool {
 	return age < 13
 }
 
-// isReservedUsername 檢查用戶名是否為保留字
+// check if the username is reserved
 func (s *userServiceImpl) isReservedUsername(username string) bool {
 	reservedUsernames := []string{
 		"admin", "administrator", "root", "system", "api",

@@ -6,6 +6,7 @@ import (
 	"go-gin-api-server/internal/middleware"
 	"go-gin-api-server/internal/repository"
 	"go-gin-api-server/internal/service"
+	"go-gin-api-server/pkg/logger"
 	"go-gin-api-server/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -55,9 +56,9 @@ func NewServer(cfg *config.Config) *gin.Engine {
 	postService := service.NewPostService(postRepo)
 
 	// Initialize handlers
-	userHandler := handler.NewUserHandler(userService)
-	authHandler := handler.NewAuthHandler(authService)
-	postHandler := handler.NewPostHandler(postService)
+	userHandler := handler.NewUserHandler(userService, logger.Log)
+	authHandler := handler.NewAuthHandler(authService, logger.Log)
+	postHandler := handler.NewPostHandler(postService, logger.Log)
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authService)

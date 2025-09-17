@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"go-gin-api-server/internal/database"
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/apperrors"
@@ -52,7 +53,13 @@ func (r *userRepositoryImpl) Create(user *model.User) (*model.User, error) {
 
 	if len(conditions) > 0 {
 		query := strings.Join(conditions, " OR ")
-		if err := r.db.Where(query, args...).First(&existingUser).Error; err == nil {
+		if err := r.db.
+			Where(query, args...).
+			First(&existingUser).Error; err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, err
+			}
+		} else {
 			return nil, apperrors.ErrUserExists
 		}
 	}
@@ -68,8 +75,13 @@ func (r *userRepositoryImpl) Create(user *model.User) (*model.User, error) {
 func (r *userRepositoryImpl) FindByID(id string) (*model.User, error) {
 	var user model.User
 
-	if err := r.db.Where("id = ?", id).First(&user).Error; err != nil {
-		return nil, apperrors.ErrNotFound
+	if err := r.db.
+		Where("id = ?", id).
+		First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.ErrNotFound
+		}
+		return nil, err
 	}
 
 	return &user, nil
@@ -77,8 +89,13 @@ func (r *userRepositoryImpl) FindByID(id string) (*model.User, error) {
 
 func (r *userRepositoryImpl) FindByUsername(username string) (*model.User, error) {
 	var user model.User
-	if err := r.db.Where("username = ?", username).First(&user).Error; err != nil {
-		return nil, apperrors.ErrNotFound
+	if err := r.db.
+		Where("username = ?", username).
+		First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.ErrNotFound
+		}
+		return nil, err
 	}
 
 	return &user, nil
@@ -86,8 +103,13 @@ func (r *userRepositoryImpl) FindByUsername(username string) (*model.User, error
 
 func (r *userRepositoryImpl) FindByEmail(email string) (*model.User, error) {
 	var user model.User
-	if err := r.db.Where("email = ?", email).First(&user).Error; err != nil {
-		return nil, apperrors.ErrNotFound
+	if err := r.db.
+		Where("email = ?", email).
+		First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.ErrNotFound
+		}
+		return nil, err
 	}
 
 	return &user, nil
@@ -103,15 +125,22 @@ func (r *userRepositoryImpl) Update(id string, updated *model.User) (*model.User
 	}
 
 	var user model.User
-	if err := r.db.Where("id = ?", id).First(&user).Error; err != nil {
-		return nil, apperrors.ErrNotFound
+	if err := r.db.
+		Where("id = ?", id).
+		First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.ErrNotFound
+		}
+		return nil, err
 	}
 
 	return &user, nil
 }
 
 func (r *userRepositoryImpl) Delete(id string) error {
-	result := r.db.Where("id = ?", id).Delete(&model.User{})
+	result := r.db.
+		Where("id = ?", id).
+		Delete(&model.User{})
 	if result.Error != nil {
 		return result.Error
 	}

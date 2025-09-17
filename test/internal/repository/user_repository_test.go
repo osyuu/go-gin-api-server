@@ -10,15 +10,57 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func createTestUser() *model.User {
+func createTestUser(overrides ...map[string]interface{}) *model.User {
+	// Default values
 	birthDate := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	username := "test"
 	email := "test@test.com"
+	name := "test"
+
+	// Apply overrides if provided
+	if len(overrides) > 0 {
+		override := overrides[0]
+		if val, ok := override["name"]; ok {
+			name = val.(string)
+		}
+		if val, ok := override["username"]; ok {
+			if val != nil {
+				username = val.(string)
+			} else {
+				username = ""
+			}
+		}
+		if val, ok := override["email"]; ok {
+			if val != nil {
+				email = val.(string)
+			} else {
+				email = ""
+			}
+		}
+		if val, ok := override["birthDate"]; ok {
+			if val != nil {
+				birthDate = val.(time.Time)
+			}
+		}
+	}
+
+	// Handle pointers
+	var usernamePtr, emailPtr *string
+	var birthDatePtr *time.Time
+
+	if username != "" {
+		usernamePtr = &username
+	}
+	if email != "" {
+		emailPtr = &email
+	}
+	birthDatePtr = &birthDate
+
 	return model.CreateUser(
-		"test",
-		&username,
-		&email,
-		&birthDate,
+		name,
+		usernamePtr,
+		emailPtr,
+		birthDatePtr,
 	)
 }
 
@@ -33,7 +75,8 @@ func TestCreateUserAndFindByID(t *testing.T) {
 		user := createTestUser()
 
 		// run
-		created, _ := repo.Create(user)
+		created, err := repo.Create(user)
+		assert.NoError(t, err)
 		found, err := repo.FindByID(created.ID)
 
 		// assert
@@ -74,7 +117,8 @@ func TestCreateUserAndFindByUsername(t *testing.T) {
 		user := createTestUser()
 
 		// run
-		created, _ := repo.Create(user)
+		created, err := repo.Create(user)
+		assert.NoError(t, err)
 		found, err := repo.FindByUsername(*created.Username)
 
 		// assert
@@ -114,7 +158,8 @@ func TestCreateUserAndFindByEmail(t *testing.T) {
 		user := createTestUser()
 
 		// run
-		created, _ := repo.Create(user)
+		created, err := repo.Create(user)
+		assert.NoError(t, err)
 		found, err := repo.FindByEmail(*created.Email)
 
 		// assert
@@ -154,7 +199,8 @@ func TestUpdateUser(t *testing.T) {
 		user := createTestUser()
 
 		// run
-		created, _ := repo.Create(user)
+		created, err := repo.Create(user)
+		assert.NoError(t, err)
 		birthDate := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
 		updatedUsername := "updated"
 		updatedEmail := "updated@test.com"
@@ -230,7 +276,8 @@ func TestCreateUser(t *testing.T) {
 		user2 := createTestUser()
 
 		// run
-		_, _ = repo.Create(user)
+		_, err := repo.Create(user)
+		assert.NoError(t, err)
 		existing, err := repo.Create(user2)
 
 		// assert
@@ -248,7 +295,8 @@ func TestDeleteUser(t *testing.T) {
 		user := createTestUser()
 
 		// run
-		created, _ := repo.Create(user)
+		created, err := repo.Create(user)
+		assert.NoError(t, err)
 		repo.Delete(created.ID)
 		found, err := repo.FindByID(created.ID)
 
