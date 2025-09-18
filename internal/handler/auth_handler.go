@@ -102,9 +102,14 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 func (h *AuthHandler) ActivateUser(c *gin.Context) {
 	userID := c.Param("id")
-	currentUserID := c.GetString("user_id")
 
-	user, err := h.authService.ActivateUser(userID, currentUserID)
+	currentUserRole, err := GetUserRole(c)
+	if err != nil {
+		h.handleAuthError(c, err, "ActivateUser")
+		return
+	}
+
+	user, err := h.authService.ActivateUser(userID, currentUserRole)
 	if err != nil {
 		h.handleAuthError(c, err, "ActivateUser")
 		return
@@ -115,9 +120,13 @@ func (h *AuthHandler) ActivateUser(c *gin.Context) {
 
 func (h *AuthHandler) DeactivateUser(c *gin.Context) {
 	userID := c.Param("id")
-	currentUserID := c.GetString("user_id")
+	currentUserID, currentUserRole, err := GetUserIDAndRole(c)
+	if err != nil {
+		h.handleAuthError(c, err, "DeactivateUser")
+		return
+	}
 
-	user, err := h.authService.DeactivateUser(userID, currentUserID)
+	user, err := h.authService.DeactivateUser(userID, currentUserID, currentUserRole)
 	if err != nil {
 		h.handleAuthError(c, err, "DeactivateUser")
 		return

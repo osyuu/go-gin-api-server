@@ -52,8 +52,9 @@ func (m *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		// 4. store user ID to context
+		// 4. store user ID, role to context
 		c.Set("user_id", claims.UserID)
+		c.Set("user_role", claims.Role)
 		c.Next()
 	}
 }
@@ -89,8 +90,9 @@ func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 			return
 		}
 
-		// token有效，設置user ID
+		// token is valid, set user ID and role to context
 		c.Set("user_id", claims.UserID)
+		c.Set("user_role", claims.Role)
 		c.Next()
 	}
 }
@@ -123,6 +125,7 @@ func (m *AuthMiddleware) tryAutoRefresh(c *gin.Context) bool {
 	}
 
 	c.Set("user_id", claims.UserID)
+	c.Set("user_role", claims.Role)
 	c.Next()
 	return true
 }

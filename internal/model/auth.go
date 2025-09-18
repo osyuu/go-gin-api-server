@@ -33,7 +33,8 @@ type TokenResponse struct {
 
 // Claims JWT claims - store user info in token
 type Claims struct {
-	UserID string `json:"user_id"`
+	UserID string   `json:"user_id"`
+	Role   UserRole `json:"role"`
 	jwt.RegisteredClaims
 }
 
