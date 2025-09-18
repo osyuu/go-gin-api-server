@@ -30,6 +30,7 @@ services:
       - DB_NAME=${DB_NAME}
       - JWT_SECRET=${JWT_SECRET}
       - LOG_LEVEL=${LOG_LEVEL}
+      - DATABASE_URL=${DATABASE_URL}
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +54,7 @@ services:
       - DB_NAME=${DB_NAME}
       - JWT_SECRET=${JWT_SECRET}
       - LOG_LEVEL=${LOG_LEVEL}
+      - DATABASE_URL=${DATABASE_URL}
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,6 +78,7 @@ services:
       - DB_NAME=${DB_NAME}
       - JWT_SECRET=${JWT_SECRET}
       - LOG_LEVEL=${LOG_LEVEL}
+      - DATABASE_URL=${DATABASE_URL}
     depends_on:
       postgres:
         condition: service_healthy

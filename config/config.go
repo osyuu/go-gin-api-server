@@ -106,7 +106,7 @@ func getDurationEnv(key string, fallback time.Duration) time.Duration {
 // parseDatabaseURL 解析 DATABASE_URL
 func parseDatabaseURL(databaseURL string) DatabaseConfig {
 	u, err := url.Parse(databaseURL)
-	if err != nil {
+	if err != nil || databaseURL == "" {
 		return DatabaseConfig{
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     getEnv("DB_PORT", "5432"),
