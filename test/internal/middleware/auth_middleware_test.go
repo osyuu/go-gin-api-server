@@ -4,7 +4,6 @@ import (
 	"go-gin-api-server/internal/middleware"
 	"go-gin-api-server/internal/model"
 	"go-gin-api-server/pkg/apperrors"
-	"go-gin-api-server/pkg/logger"
 	mockServices "go-gin-api-server/test/mocks/service"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 const (
@@ -19,20 +19,19 @@ const (
 )
 
 func setupTestAuthMiddleware() (*middleware.AuthMiddleware, *mockServices.AuthServiceMock) {
-	// Initialize logger for testing
-	logger.Init("test")
-
 	mockAuthService := mockServices.NewAuthServiceMock()
-	authMiddleware := middleware.NewAuthMiddleware(mockAuthService)
+	authMiddleware := middleware.NewAuthMiddleware(mockAuthService, zap.NewNop())
 	return authMiddleware, mockAuthService
 }
 
-func setupTestRouter(middlewareFunc gin.HandlerFunc) *gin.Engine {
+func setupTestAuthRouter(middlewareFunc gin.HandlerFunc) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
+	router.Use(middlewareFunc)
+
 	// Add a test route that requires auth
-	router.GET("/protected", middlewareFunc, func(c *gin.Context) {
+	router.GET("/protected", func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 		c.JSON(http.StatusOK, gin.H{
 			"message": "success",
@@ -53,7 +52,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 		mockAuthService.On("ValidateToken", validToken).Return(claims, nil)
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.RequireAuth())
+		router := setupTestAuthRouter(authMiddleware.RequireAuth())
 
 		// Create request
 		req, _ := http.NewRequest("GET", "/protected", nil)
@@ -76,7 +75,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 		authMiddleware, mockAuthService := setupTestAuthMiddleware()
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.RequireAuth())
+		router := setupTestAuthRouter(authMiddleware.RequireAuth())
 
 		// Create request without Authorization header
 		req, _ := http.NewRequest("GET", "/protected", nil)
@@ -98,7 +97,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 		authMiddleware, mockAuthService := setupTestAuthMiddleware()
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.RequireAuth())
+		router := setupTestAuthRouter(authMiddleware.RequireAuth())
 
 		// Create request with invalid Authorization format
 		req, _ := http.NewRequest("GET", "/protected", nil)
@@ -125,7 +124,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 		mockAuthService.On("ValidateToken", invalidToken).Return(nil, apperrors.ErrInvalidToken)
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.RequireAuth())
+		router := setupTestAuthRouter(authMiddleware.RequireAuth())
 
 		// Create request
 		req, _ := http.NewRequest("GET", "/protected", nil)
@@ -157,7 +156,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 		mockAuthService.On("ValidateToken", newAccessToken).Return(claims, nil)
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.RequireAuth())
+		router := setupTestAuthRouter(authMiddleware.RequireAuth())
 
 		// Create request
 		req, _ := http.NewRequest("GET", "/protected", nil)
@@ -190,7 +189,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 		mockAuthService.On("ValidateToken", expiredToken).Return(nil, apperrors.ErrExpiredToken)
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.RequireAuth())
+		router := setupTestAuthRouter(authMiddleware.RequireAuth())
 
 		// Create request without refresh token cookie
 		req, _ := http.NewRequest("GET", "/protected", nil)
@@ -219,7 +218,7 @@ func TestAuthMiddleware_RequireAuth(t *testing.T) {
 		mockAuthService.On("RefreshAccessToken", invalidRefreshToken).Return("", apperrors.ErrInvalidToken)
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.RequireAuth())
+		router := setupTestAuthRouter(authMiddleware.RequireAuth())
 
 		// Create request
 		req, _ := http.NewRequest("GET", "/protected", nil)
@@ -253,7 +252,7 @@ func TestAuthMiddleware_OptionalAuth(t *testing.T) {
 		mockAuthService.On("ValidateToken", validToken).Return(claims, nil)
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.OptionalAuth())
+		router := setupTestAuthRouter(authMiddleware.OptionalAuth())
 
 		// Create request
 		req, _ := http.NewRequest("GET", "/protected", nil)
@@ -276,7 +275,7 @@ func TestAuthMiddleware_OptionalAuth(t *testing.T) {
 		authMiddleware, mockAuthService := setupTestAuthMiddleware()
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.OptionalAuth())
+		router := setupTestAuthRouter(authMiddleware.OptionalAuth())
 
 		// Create request without Authorization header
 		req, _ := http.NewRequest("GET", "/protected", nil)
@@ -302,7 +301,7 @@ func TestAuthMiddleware_OptionalAuth(t *testing.T) {
 		mockAuthService.On("ValidateToken", invalidToken).Return(nil, apperrors.ErrInvalidToken)
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.OptionalAuth())
+		router := setupTestAuthRouter(authMiddleware.OptionalAuth())
 
 		// Create request
 		req, _ := http.NewRequest("GET", "/protected", nil)
@@ -334,7 +333,7 @@ func TestAuthMiddleware_OptionalAuth(t *testing.T) {
 		mockAuthService.On("ValidateToken", newAccessToken).Return(claims, nil)
 
 		// Setup router
-		router := setupTestRouter(authMiddleware.OptionalAuth())
+		router := setupTestAuthRouter(authMiddleware.OptionalAuth())
 
 		// Create request
 		req, _ := http.NewRequest("GET", "/protected", nil)

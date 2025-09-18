@@ -33,7 +33,8 @@ func (h *PostHandler) RegisterRoutes(r *gin.Engine) {
 	}
 }
 
-func (h *PostHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware) {
+func (h *PostHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware, rbacMiddleware *middleware.RBACMiddleware) {
+	// Basic protected routes - require authentication
 	protected := r.Group("/api/v1/posts")
 	protected.Use(authMiddleware.RequireAuth())
 	{
@@ -139,8 +140,11 @@ func (h *PostHandler) UpdatePost(c *gin.Context) {
 		return
 	}
 
-	// Get current user ID from auth context
-	userID := c.GetString("user_id")
+	userID, err := GetUserID(c)
+	if err != nil {
+		h.handlePostError(c, err, "UpdatePost")
+		return
+	}
 
 	updated, err := h.service.Update(id, &update, userID)
 	if err != nil {
@@ -164,8 +168,11 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 		return
 	}
 
-	// Get current user ID from auth context
-	userID := c.GetString("user_id")
+	userID, err := GetUserID(c)
+	if err != nil {
+		h.handlePostError(c, err, "DeletePost")
+		return
+	}
 
 	if err := h.service.Delete(id, userID); err != nil {
 		h.handlePostError(c, err, "DeletePost")

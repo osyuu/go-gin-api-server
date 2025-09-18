@@ -32,13 +32,23 @@ func (h *AuthHandler) RegisterRoutes(r *gin.Engine) {
 	}
 }
 
-func (h *AuthHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware) {
-	// Protected auth routes (admin operations)
-	protected := r.Group("/api/v1/auth")
-	protected.Use(authMiddleware.RequireAuth())
+func (h *AuthHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware, rbacMiddleware *middleware.RBACMiddleware) {
+	// Admin-only routes
+	admin := r.Group("/api/v1/auth")
+	admin.Use(authMiddleware.RequireAuth())
+	admin.Use(rbacMiddleware.RequireAdmin())
 	{
-		protected.POST("/users/:id/activate", h.ActivateUser)
-		protected.POST("/users/:id/deactivate", h.DeactivateUser)
+		// Only admin can activate users
+		admin.POST("/users/:id/activate", h.ActivateUser)
+	}
+
+	// Admin or owner routes
+	adminOrOwner := r.Group("/api/v1/auth")
+	adminOrOwner.Use(authMiddleware.RequireAuth())
+	adminOrOwner.Use(rbacMiddleware.RequireOwnershipOrAdmin())
+	{
+		// Admin can deactivate any user, user can deactivate themselves
+		adminOrOwner.POST("/users/:id/deactivate", h.DeactivateUser)
 	}
 }
 
@@ -103,13 +113,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 func (h *AuthHandler) ActivateUser(c *gin.Context) {
 	userID := c.Param("id")
 
-	currentUserRole, err := GetUserRole(c)
-	if err != nil {
-		h.handleAuthError(c, err, "ActivateUser")
-		return
-	}
-
-	user, err := h.authService.ActivateUser(userID, currentUserRole)
+	user, err := h.authService.ActivateUser(userID)
 	if err != nil {
 		h.handleAuthError(c, err, "ActivateUser")
 		return
@@ -120,13 +124,8 @@ func (h *AuthHandler) ActivateUser(c *gin.Context) {
 
 func (h *AuthHandler) DeactivateUser(c *gin.Context) {
 	userID := c.Param("id")
-	currentUserID, currentUserRole, err := GetUserIDAndRole(c)
-	if err != nil {
-		h.handleAuthError(c, err, "DeactivateUser")
-		return
-	}
 
-	user, err := h.authService.DeactivateUser(userID, currentUserID, currentUserRole)
+	user, err := h.authService.DeactivateUser(userID)
 	if err != nil {
 		h.handleAuthError(c, err, "DeactivateUser")
 		return

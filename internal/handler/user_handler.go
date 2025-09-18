@@ -29,21 +29,33 @@ func (h *UserHandler) RegisterRoutes(r *gin.Engine) {
 	r.GET("/api/v1/users/profile/:username", h.GetUserProfile)
 }
 
-func (h *UserHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware) {
-	// Protected routes
+func (h *UserHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware, rbacMiddleware *middleware.RBACMiddleware) {
+	// Basic protected routes - require authentication
 	protected := r.Group("/api/v1/users")
 	protected.Use(authMiddleware.RequireAuth())
 	{
-		// Get user info (sensitive data)
+		// Get user info (sensitive data) - any authenticated user
 		protected.GET("/:id", h.GetUserByID)
 		protected.GET("/username/:username", h.GetUserByUsername)
 		protected.GET("/email/:email", h.GetUserByEmail)
+	}
 
-		// User management operations
-		protected.PATCH("/:id", h.UpdateUserProfile)
+	// Admin-only routes
+	admin := r.Group("/api/v1/users")
+	admin.Use(authMiddleware.RequireAuth())
+	admin.Use(rbacMiddleware.RequireAdmin())
+	{
+		// Only admin can delete users
+		admin.DELETE("/:id", h.DeleteUser)
+	}
 
-		// Admin operations (not implemented)
-		// protected.DELETE("/:id", h.DeleteUser)
+	// Owner routes (only resource owner can update)
+	owner := r.Group("/api/v1/users")
+	owner.Use(authMiddleware.RequireAuth())
+	owner.Use(rbacMiddleware.RequireOwnership())
+	{
+		// Only resource owner can update their profile
+		owner.PATCH("/:id", h.UpdateUserProfile)
 	}
 }
 
@@ -154,10 +166,7 @@ func (h *UserHandler) UpdateUserProfile(c *gin.Context) {
 		return
 	}
 
-	// Get current user ID from auth context
-	currentUserID := c.GetString("user_id")
-
-	updated, err := h.service.UpdateUserProfile(userID, currentUserID, update)
+	updated, err := h.service.UpdateUserProfile(userID, update)
 	if err != nil {
 		h.handleUserError(c, err, "UpdateUserProfile")
 		return

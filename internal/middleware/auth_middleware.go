@@ -3,7 +3,6 @@ package middleware
 import (
 	"go-gin-api-server/internal/service"
 	"go-gin-api-server/pkg/apperrors"
-	"go-gin-api-server/pkg/logger"
 	"net/http"
 	"strings"
 
@@ -13,11 +12,13 @@ import (
 
 type AuthMiddleware struct {
 	authService service.AuthService
+	logger      *zap.Logger
 }
 
-func NewAuthMiddleware(authService service.AuthService) *AuthMiddleware {
+func NewAuthMiddleware(authService service.AuthService, logger *zap.Logger) *AuthMiddleware {
 	return &AuthMiddleware{
 		authService: authService,
+		logger:      logger,
 	}
 }
 
@@ -102,14 +103,14 @@ func (m *AuthMiddleware) tryAutoRefresh(c *gin.Context) bool {
 	// 1. 從 cookie 中獲取 refresh token
 	refreshToken, err := c.Cookie("gin_api_refresh_token")
 	if err != nil {
-		logger.Log.Debug("No refresh token found in cookie", zap.Error(err))
+		m.logger.Debug("No refresh token found in cookie", zap.Error(err))
 		return false
 	}
 
 	// 2. 使用 refresh token 獲取新的 access token（不刷新 refresh token）
 	newAccessToken, err := m.authService.RefreshAccessToken(refreshToken)
 	if err != nil {
-		logger.Log.Debug("Failed to refresh access token", zap.Error(err))
+		m.logger.Debug("Failed to refresh access token", zap.Error(err))
 		return false
 	}
 
@@ -120,7 +121,7 @@ func (m *AuthMiddleware) tryAutoRefresh(c *gin.Context) bool {
 	// 4. 驗證新的 access token 並設置 user_id
 	claims, err := m.authService.ValidateToken(newAccessToken)
 	if err != nil {
-		logger.Log.Error("Failed to validate new access token", zap.Error(err))
+		m.logger.Error("Failed to validate new access token", zap.Error(err))
 		return false
 	}
 
@@ -146,7 +147,7 @@ func (m *AuthMiddleware) handleAuthError(c *gin.Context, err error, operation st
 			"error": "Unauthorized",
 		})
 	default:
-		logger.Log.Error("Unexpected error in auth middleware",
+		m.logger.Error("Unexpected error in auth middleware",
 			zap.String("operation", operation),
 			zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{

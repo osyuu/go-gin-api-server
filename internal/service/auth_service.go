@@ -19,8 +19,8 @@ type AuthService interface {
 	ValidateToken(tokenString string) (*model.Claims, error)
 
 	// User status management
-	ActivateUser(userID string, currentUserRole model.UserRole) (*model.User, error)
-	DeactivateUser(userID string, currentUserID string, currentUserRole model.UserRole) (*model.User, error)
+	ActivateUser(userID string) (*model.User, error)
+	DeactivateUser(userID string) (*model.User, error)
 }
 
 type authServiceImpl struct {
@@ -177,12 +177,7 @@ func (s *authServiceImpl) ValidateToken(tokenString string) (*model.Claims, erro
 	return s.jwtMgr.ValidateToken(tokenString)
 }
 
-func (s *authServiceImpl) ActivateUser(userID string, currentUserRole model.UserRole) (*model.User, error) {
-	// business logic validation: check if the user is the admin
-	if !currentUserRole.IsAdmin() {
-		return nil, apperrors.ErrForbidden
-	}
-
+func (s *authServiceImpl) ActivateUser(userID string) (*model.User, error) {
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
 		return nil, err
@@ -201,12 +196,7 @@ func (s *authServiceImpl) ActivateUser(userID string, currentUserRole model.User
 	return updatedUser, nil
 }
 
-func (s *authServiceImpl) DeactivateUser(userID string, currentUserID string, currentUserRole model.UserRole) (*model.User, error) {
-	// business logic validation: check if the user is the current user or admin
-	if userID != currentUserID && !currentUserRole.IsAdmin() {
-		return nil, apperrors.ErrForbidden
-	}
-
+func (s *authServiceImpl) DeactivateUser(userID string) (*model.User, error) {
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
 		return nil, err
