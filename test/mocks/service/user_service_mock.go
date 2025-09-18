@@ -63,8 +63,8 @@ func (m *UserServiceMock) GetUserByEmail(email string) (*model.User, error) {
 	return nil, args.Error(1)
 }
 
-func (m *UserServiceMock) UpdateUserProfile(userID string, currentUserID string, req model.UpdateUserProfileRequest) (*model.User, error) {
-	args := m.Called(userID, currentUserID, req)
+func (m *UserServiceMock) UpdateUserProfile(userID string, req model.UpdateUserProfileRequest) (*model.User, error) {
+	args := m.Called(userID, req)
 	if user := args.Get(0); user != nil {
 		userResult, ok := user.(*model.User)
 		if !ok {

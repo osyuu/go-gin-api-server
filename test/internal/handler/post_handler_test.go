@@ -23,15 +23,21 @@ func setupTestPostHandler() (*mockService.PostServiceMock, *handler.PostHandler)
 	return mockService, postHandler
 }
 
-func setupPostRouter(handlerFunc gin.HandlerFunc) *gin.Engine {
+func setupPostRouter(postHandler *handler.PostHandler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.Default()
 
-	r.GET("/posts", handlerFunc)
-	r.GET("/posts/:id", handlerFunc)
-	r.POST("/posts", handlerFunc)
-	r.PATCH("/posts/:id", handlerFunc)
-	r.DELETE("/posts/:id", handlerFunc)
+	r.Use(func(c *gin.Context) {
+		c.Set("user_role", model.RoleUser)
+		c.Set("user_id", authorID)
+		c.Next()
+	})
+
+	r.GET("/posts", postHandler.GetPosts)
+	r.GET("/posts/:id", postHandler.GetPostByID)
+	r.POST("/posts", postHandler.CreatePost)
+	r.PATCH("/posts/:id", postHandler.UpdatePost)
+	r.DELETE("/posts/:id", postHandler.DeletePost)
 	return r
 }
 
@@ -85,7 +91,7 @@ var (
 func TestCreatePost(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.CreatePost)
+		r := setupPostRouter(postHandler)
 
 		expected := createTestPost()
 		mockService.On("Create", mock.Anything).Return(expected, nil)
@@ -107,7 +113,7 @@ func TestCreatePost(t *testing.T) {
 
 	t.Run("BindingError", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.CreatePost)
+		r := setupPostRouter(postHandler)
 
 		requestData := &model.Post{
 			Content: "", // empty content, trigger required validation
@@ -124,7 +130,7 @@ func TestCreatePost(t *testing.T) {
 
 	t.Run("ServiceError", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.CreatePost)
+		r := setupPostRouter(postHandler)
 
 		// Mock service return error
 		mockService.On("Create", mock.Anything).Return(nil, apperrors.ErrPostContentTooLong)
@@ -147,7 +153,7 @@ func TestCreatePost(t *testing.T) {
 func TestUpdatePost(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.UpdatePost)
+		r := setupPostRouter(postHandler)
 
 		expected := createTestPost()
 		mockService.On("Update", mock.Anything, mock.Anything, mock.Anything).Return(expected, nil)
@@ -167,7 +173,7 @@ func TestUpdatePost(t *testing.T) {
 
 	t.Run("BindingError_InvalidID", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.UpdatePost)
+		r := setupPostRouter(postHandler)
 
 		// invalid id parameter
 		req := createTypedJSONRequest(http.MethodPatch, "/posts/invalid", nil)
@@ -181,7 +187,7 @@ func TestUpdatePost(t *testing.T) {
 
 	t.Run("ServiceError", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.UpdatePost)
+		r := setupPostRouter(postHandler)
 
 		mockService.On("Update", mock.Anything, mock.Anything, mock.Anything).Return(nil, apperrors.ErrNotFound)
 
@@ -202,7 +208,7 @@ func TestUpdatePost(t *testing.T) {
 func TestDeletePost(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.DeletePost)
+		r := setupPostRouter(postHandler)
 
 		mockService.On("Delete", mock.Anything, mock.Anything).Return(nil)
 
@@ -217,7 +223,7 @@ func TestDeletePost(t *testing.T) {
 
 	t.Run("BindingError_InvalidID", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.DeletePost)
+		r := setupPostRouter(postHandler)
 
 		// invalid id parameter
 		req := createTypedJSONRequest(http.MethodDelete, "/posts/invalid", nil)
@@ -231,7 +237,7 @@ func TestDeletePost(t *testing.T) {
 
 	t.Run("ServiceError", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.DeletePost)
+		r := setupPostRouter(postHandler)
 
 		mockService.On("Delete", mock.Anything, mock.Anything).Return(apperrors.ErrNotFound)
 
@@ -248,7 +254,7 @@ func TestDeletePost(t *testing.T) {
 func TestGetPosts(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.GetPosts)
+		r := setupPostRouter(postHandler)
 
 		expectedResponse := &model.CursorResponse[model.Post]{
 			Data:    []model.Post{*createTestPost()},
@@ -269,7 +275,7 @@ func TestGetPosts(t *testing.T) {
 
 	t.Run("BindQueryError", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.GetPosts)
+		r := setupPostRouter(postHandler)
 
 		// invalid limit parameter (exceeds max value 100)
 		req := createTypedJSONRequest(http.MethodGet, "/posts?limit=200", nil)
@@ -283,7 +289,7 @@ func TestGetPosts(t *testing.T) {
 
 	t.Run("ServiceError", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.GetPosts)
+		r := setupPostRouter(postHandler)
 
 		mockService.On("List", mock.Anything).Return(nil, apperrors.ErrValidation)
 
@@ -300,7 +306,7 @@ func TestGetPosts(t *testing.T) {
 func TestGetPostByID(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.GetPostByID)
+		r := setupPostRouter(postHandler)
 
 		expected := createTestPost()
 		mockService.On("GetByID", mock.Anything).Return(expected, nil)
@@ -317,7 +323,7 @@ func TestGetPostByID(t *testing.T) {
 
 	t.Run("BindingError_InvalidID", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.GetPostByID)
+		r := setupPostRouter(postHandler)
 
 		// invalid id parameter
 		req := createTypedJSONRequest(http.MethodGet, "/posts/invalid", nil)
@@ -331,7 +337,7 @@ func TestGetPostByID(t *testing.T) {
 
 	t.Run("NotFound", func(t *testing.T) {
 		mockService, postHandler := setupTestPostHandler()
-		r := setupPostRouter(postHandler.GetPostByID)
+		r := setupPostRouter(postHandler)
 
 		mockService.On("GetByID", mock.Anything).Return(nil, apperrors.ErrNotFound)
 

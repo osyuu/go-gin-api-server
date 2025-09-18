@@ -32,7 +32,8 @@ func setupIntegrationUserRouter(db *gorm.DB) *gin.Engine {
 	userHandler := handler.NewUserHandler(userService, logger.Log)
 
 	// Setup middleware
-	authMiddleware := middleware.NewAuthMiddleware(authService)
+	authMiddleware := middleware.NewAuthMiddleware(authService, logger.Log)
+	rbacMiddleware := middleware.NewRBACMiddleware(logger.Log)
 
 	// Setup router
 	gin.SetMode(gin.TestMode)
@@ -45,7 +46,7 @@ func setupIntegrationUserRouter(db *gorm.DB) *gin.Engine {
 
 	// Register routes
 	userHandler.RegisterRoutes(r)
-	userHandler.RegisterProtectedRoutes(r, authMiddleware)
+	userHandler.RegisterProtectedRoutes(r, authMiddleware, rbacMiddleware)
 
 	return r
 }

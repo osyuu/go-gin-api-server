@@ -30,12 +30,6 @@ func setupAuthRouter(authHandler *handler.AuthHandler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 
-	r.Use(func(c *gin.Context) {
-		c.Set("user_role", model.RoleUser)
-		c.Set("user_id", testUserID)
-		c.Next()
-	})
-
 	// Register custom validators
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		utils.RegisterCustomValidators(v)
@@ -247,7 +241,7 @@ func TestAuthHandler_ActivateUser(t *testing.T) {
 		authHandler, mockAuthService := setupTestAuthHandler()
 
 		// Setup mock
-		mockAuthService.On("ActivateUser", mock.Anything, mock.Anything).Return(nil, apperrors.ErrForbidden)
+		mockAuthService.On("ActivateUser", mock.Anything, mock.Anything).Return(nil, apperrors.ErrNotFound)
 
 		// Setup router
 		router := setupAuthRouter(authHandler)
@@ -259,7 +253,7 @@ func TestAuthHandler_ActivateUser(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		// Assert
-		assert.Equal(t, http.StatusForbidden, w.Code)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
 		mockAuthService.AssertExpectations(t)
 	})
 }
@@ -302,7 +296,7 @@ func TestAuthHandler_DeactivateUser(t *testing.T) {
 			mock.Anything,
 			mock.Anything,
 			mock.Anything,
-		).Return(nil, apperrors.ErrForbidden)
+		).Return(nil, apperrors.ErrNotFound)
 
 		// Setup router
 		router := setupAuthRouter(authHandler)
@@ -315,7 +309,7 @@ func TestAuthHandler_DeactivateUser(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		// Assert
-		assert.Equal(t, http.StatusForbidden, w.Code)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
 		mockAuthService.AssertExpectations(t)
 	})
 }

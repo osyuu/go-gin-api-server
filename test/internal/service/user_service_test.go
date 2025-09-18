@@ -123,7 +123,7 @@ func TestUpdateUserProfile(t *testing.T) {
 		}
 
 		// run
-		updated, err := mockService.UpdateUserProfile(created.ID, created.ID, req)
+		updated, err := mockService.UpdateUserProfile(created.ID, req)
 
 		// assert
 		assert.NoError(t, err)
@@ -148,32 +148,11 @@ func TestUpdateUserProfile(t *testing.T) {
 		// run
 		created, err := mockService.UpdateUserProfile(
 			createdID,
-			createdID,
 			req,
 		)
 
 		// assert
 		assert.ErrorIs(t, err, apperrors.ErrUserUnderAge)
-		assert.Nil(t, created)
-		repo.AssertNotCalled(t, "Update")
-	})
-
-	t.Run("ErrorForbidden", func(t *testing.T) {
-		repo, mockService := setupTestUserService()
-		createdID := "1"
-		repo.On("Update", mock.Anything, mock.Anything).Return(nil, apperrors.ErrForbidden)
-		req := model.UpdateUserProfileRequest{
-			Name:      "Updated User",
-			BirthDate: nil,
-		}
-
-		created, err := mockService.UpdateUserProfile(
-			createdID,
-			"2", // different user ID
-			req,
-		)
-
-		assert.ErrorIs(t, err, apperrors.ErrForbidden)
 		assert.Nil(t, created)
 		repo.AssertNotCalled(t, "Update")
 	})
