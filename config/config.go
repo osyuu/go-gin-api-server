@@ -156,11 +156,6 @@ func validateProductionConfig(cfg *Config) {
 		log.Fatal("JWT_SECRET must be at least 32 characters in production")
 	}
 
-	// 檢查資料庫 SSL 設定
-	if cfg.Database.SSLMode == "disable" {
-		log.Fatal("Database SSL must be enabled in production")
-	}
-
 	// 檢查是否使用預設資料庫設定
 	if cfg.Database.Host == "localhost" || cfg.Database.Host == "127.0.0.1" {
 		log.Fatal("Production database must not use localhost")
