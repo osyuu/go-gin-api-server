@@ -70,8 +70,8 @@ func (m *AuthServiceMock) ValidateToken(tokenString string) (*model.Claims, erro
 	return nil, args.Error(1)
 }
 
-func (m *AuthServiceMock) ActivateUser(userID string, currentUserID string) (*model.User, error) {
-	args := m.Called(userID, currentUserID)
+func (m *AuthServiceMock) ActivateUser(userID string, currentUserRole model.UserRole) (*model.User, error) {
+	args := m.Called(userID, currentUserRole)
 	if user := args.Get(0); user != nil {
 		userResult, ok := user.(*model.User)
 		if !ok {
@@ -82,8 +82,8 @@ func (m *AuthServiceMock) ActivateUser(userID string, currentUserID string) (*mo
 	return nil, args.Error(1)
 }
 
-func (m *AuthServiceMock) DeactivateUser(userID string, currentUserID string) (*model.User, error) {
-	args := m.Called(userID, currentUserID)
+func (m *AuthServiceMock) DeactivateUser(userID string, currentUserID string, currentUserRole model.UserRole) (*model.User, error) {
+	args := m.Called(userID, currentUserID, currentUserRole)
 	if user := args.Get(0); user != nil {
 		userResult, ok := user.(*model.User)
 		if !ok {

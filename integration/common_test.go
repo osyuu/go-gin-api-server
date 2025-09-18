@@ -25,7 +25,7 @@ const (
 	NonExistentUserID = "550e8400-e29b-41d4-a716-446655440000"
 	NonExistentPostID = 999999999999
 	InvalidCursorID   = "invalid-id"
-	AdminUserID       = "admin-user-id-6734"
+	testAdminUserID   = "admin-user-id-6734"
 )
 
 // 全局變量，在 TestMain 中初始化
