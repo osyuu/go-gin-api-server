@@ -61,7 +61,8 @@ func NewServer(cfg *config.Config) *gin.Engine {
 	postHandler := handler.NewPostHandler(postService, logger.Log)
 
 	// Initialize middleware
-	authMiddleware := middleware.NewAuthMiddleware(authService)
+	authMiddleware := middleware.NewAuthMiddleware(authService, logger.Log)
+	rbacMiddleware := middleware.NewRBACMiddleware(logger.Log)
 
 	// Register routes
 	userHandler.RegisterRoutes(router)
@@ -69,8 +70,9 @@ func NewServer(cfg *config.Config) *gin.Engine {
 	postHandler.RegisterRoutes(router)
 
 	// Register protected routes
-	userHandler.RegisterProtectedRoutes(router, authMiddleware)
-	postHandler.RegisterProtectedRoutes(router, authMiddleware)
+	userHandler.RegisterProtectedRoutes(router, authMiddleware, rbacMiddleware)
+	postHandler.RegisterProtectedRoutes(router, authMiddleware, rbacMiddleware)
+	authHandler.RegisterProtectedRoutes(router, authMiddleware, rbacMiddleware)
 
 	return router
 }

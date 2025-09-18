@@ -13,7 +13,7 @@ type UserService interface {
 	GetUserByUsername(username string) (*model.User, error)
 	GetUserByEmail(email string) (*model.User, error)
 	GetUserProfile(username string) (*model.UserProfile, error)
-	UpdateUserProfile(userID string, currentUserID string, req model.UpdateUserProfileRequest) (*model.User, error)
+	UpdateUserProfile(userID string, req model.UpdateUserProfileRequest) (*model.User, error)
 
 	// Admin operations
 	DeleteUser(userID string) error
@@ -71,13 +71,7 @@ func (s *userServiceImpl) CreateUser(name string, username, email *string, birth
 	return s.repo.Create(user)
 }
 
-func (s *userServiceImpl) UpdateUserProfile(userID string, currentUserID string, req model.UpdateUserProfileRequest) (*model.User, error) {
-
-	// business logic validation: check if the user is the current user
-	if userID != currentUserID {
-		return nil, apperrors.ErrForbidden
-	}
-
+func (s *userServiceImpl) UpdateUserProfile(userID string, req model.UpdateUserProfileRequest) (*model.User, error) {
 	// business logic validation: if updating birth date, check if the user is under 13
 	if req.BirthDate != nil {
 		if s.isUnder13(*req.BirthDate) {
