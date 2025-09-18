@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -43,6 +44,10 @@ func LoadConfig() *Config {
 	env := getEnv("APP_ENV", Development)
 	databaseURL := getEnv("DATABASE_URL", "")
 	dbConfig := parseDatabaseURL(databaseURL)
+
+	fmt.Printf("Railway APP_ENV: %s\n", env)
+	fmt.Printf("Railway DATABASE_URL: %s\n", databaseURL)
+	fmt.Printf("Railway Database Config: %s\n", dbConfig.Host)
 
 	// 開發和生產環境配置
 	AppConfig = &Config{
