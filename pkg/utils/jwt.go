@@ -37,6 +37,7 @@ func (j *JWTManager) GenerateToken(user *model.User) (*model.TokenResponse, erro
 	refreshExpiresAt := now.Add(j.tokenDuration * 24 * 7) // 7 days
 	refreshClaims := &model.Claims{
 		UserID: user.ID,
+		Role:   user.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(refreshExpiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -67,6 +68,7 @@ func (j *JWTManager) GenerateAccessToken(user *model.User) (string, error) {
 
 	claims := &model.Claims{
 		UserID: user.ID,
+		Role:   user.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),

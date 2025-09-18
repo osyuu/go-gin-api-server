@@ -30,6 +30,12 @@ func setupAuthRouter(authHandler *handler.AuthHandler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 
+	r.Use(func(c *gin.Context) {
+		c.Set("user_role", model.RoleUser)
+		c.Set("user_id", testUserID)
+		c.Next()
+	})
+
 	// Register custom validators
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		utils.RegisterCustomValidators(v)
@@ -248,7 +254,6 @@ func TestAuthHandler_ActivateUser(t *testing.T) {
 
 		// Create json request
 		req := createTypedJSONRequest(http.MethodPost, "/api/v1/auth/users/"+testUserID+"/activate", nil)
-
 		// run
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -266,7 +271,12 @@ func TestAuthHandler_DeactivateUser(t *testing.T) {
 		updatedUser := &model.User{ID: userID, IsActive: false}
 
 		// Setup mock
-		mockAuthService.On("DeactivateUser", mock.Anything, mock.Anything).Return(updatedUser, nil)
+		mockAuthService.On(
+			"DeactivateUser",
+			mock.Anything,
+			mock.Anything,
+			mock.Anything,
+		).Return(updatedUser, nil)
 
 		// Setup router
 		router := setupAuthRouter(authHandler)
@@ -287,7 +297,12 @@ func TestAuthHandler_DeactivateUser(t *testing.T) {
 		authHandler, mockAuthService := setupTestAuthHandler()
 
 		// Setup mock
-		mockAuthService.On("DeactivateUser", mock.Anything, mock.Anything).Return(nil, apperrors.ErrForbidden)
+		mockAuthService.On(
+			"DeactivateUser",
+			mock.Anything,
+			mock.Anything,
+			mock.Anything,
+		).Return(nil, apperrors.ErrForbidden)
 
 		// Setup router
 		router := setupAuthRouter(authHandler)

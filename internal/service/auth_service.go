@@ -19,8 +19,8 @@ type AuthService interface {
 	ValidateToken(tokenString string) (*model.Claims, error)
 
 	// User status management
-	ActivateUser(userID string, currentUserID string) (*model.User, error)
-	DeactivateUser(userID string, currentUserID string) (*model.User, error)
+	ActivateUser(userID string, currentUserRole model.UserRole) (*model.User, error)
+	DeactivateUser(userID string, currentUserID string, currentUserRole model.UserRole) (*model.User, error)
 }
 
 type authServiceImpl struct {
@@ -177,9 +177,9 @@ func (s *authServiceImpl) ValidateToken(tokenString string) (*model.Claims, erro
 	return s.jwtMgr.ValidateToken(tokenString)
 }
 
-func (s *authServiceImpl) ActivateUser(userID string, currentUserID string) (*model.User, error) {
+func (s *authServiceImpl) ActivateUser(userID string, currentUserRole model.UserRole) (*model.User, error) {
 	// business logic validation: check if the user is the admin
-	if !s.isAdmin(currentUserID) {
+	if !currentUserRole.IsAdmin() {
 		return nil, apperrors.ErrForbidden
 	}
 
@@ -201,9 +201,9 @@ func (s *authServiceImpl) ActivateUser(userID string, currentUserID string) (*mo
 	return updatedUser, nil
 }
 
-func (s *authServiceImpl) DeactivateUser(userID string, currentUserID string) (*model.User, error) {
+func (s *authServiceImpl) DeactivateUser(userID string, currentUserID string, currentUserRole model.UserRole) (*model.User, error) {
 	// business logic validation: check if the user is the current user or admin
-	if userID != currentUserID && !s.isAdmin(currentUserID) {
+	if userID != currentUserID && !currentUserRole.IsAdmin() {
 		return nil, apperrors.ErrForbidden
 	}
 
@@ -249,10 +249,4 @@ func (s *authServiceImpl) isReservedUsername(username string) bool {
 	}
 
 	return slices.Contains(reservedUsernames, username)
-}
-
-func (s *authServiceImpl) isAdmin(userID string) bool {
-	adminUserID := "admin-user-id-6734" // TODO: 從配置文件或環境變量讀取
-
-	return userID == adminUserID
 }

@@ -9,6 +9,7 @@ import (
 	"go-gin-api-server/pkg/logger"
 	"go-gin-api-server/pkg/utils"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -146,7 +147,7 @@ func TestAuthIntegration_AuthLifecycle(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, activateResp.Code)
 
 	// Then test admin can activate
-	adminUser := &model.User{ID: AdminUserID, IsActive: true}
+	adminUser := &model.User{ID: testAdminUserID, IsActive: true, Role: model.RoleAdmin}
 	adminToken, _ := globalJWTManager.GenerateAccessToken(adminUser)
 
 	activateResp = makeHTTPRequest(t, router, "POST", "/api/v1/auth/users/"+claims.UserID+"/activate", nil, adminToken)
@@ -208,5 +209,83 @@ func TestAuthIntegration_EdgeCases(t *testing.T) {
 	t.Run("RefreshToken_InvalidToken", func(t *testing.T) {
 		resp := makeHTTPRequestWithCookie(t, router, "POST", "/api/v1/auth/refresh", nil, "invalid-refresh-token")
 		assert.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+}
+
+func TestAuthIntegration_AutoRefresh(t *testing.T) {
+	db := setup()
+	defer teardown(db)
+	router := setupIntegrationAuthRouter(db)
+
+	// 1. Register a user
+	birthDate := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
+	registerReq := &model.RegisterRequest{
+		Name:      "Test User",
+		Username:  "testuser",
+		Email:     "test@example.com",
+		Password:  "password123",
+		BirthDate: &birthDate,
+	}
+	registerResp := makeHTTPRequest(t, router, "POST", "/api/v1/auth/register", registerReq, "")
+	assert.Equal(t, http.StatusCreated, registerResp.Code)
+
+	var registerResponse model.TokenResponse
+	parseJSONResponse(t, registerResp, &registerResponse)
+
+	// 2. Login to get fresh tokens
+	loginReq := &model.LoginRequest{
+		Username: "testuser",
+		Password: "password123",
+	}
+	loginResp := makeHTTPRequest(t, router, "POST", "/api/v1/auth/login", loginReq, "")
+	assert.Equal(t, http.StatusOK, loginResp.Code)
+
+	var loginResponse model.TokenResponse
+	parseJSONResponse(t, loginResp, &loginResponse)
+
+	// 3. Test auto-refresh with expired access token
+	t.Run("AutoRefresh_ExpiredAccessToken", func(t *testing.T) {
+		// Get user info from the valid token
+		claims := validateJWTToken(t, loginResponse.AccessToken)
+		user := &model.User{ID: claims.UserID}
+
+		// Create a JWT manager with very short duration to generate expired token
+		// Use the same secret as globalJWTManager but with very short duration
+		shortJWTManager := utils.NewJWTManager(globalConfig.JWT.Secret, 1*time.Nanosecond)
+
+		// Generate an expired access token
+		expiredToken, err := shortJWTManager.GenerateAccessToken(user)
+		assert.NoError(t, err)
+
+		// Wait for token to expire
+		time.Sleep(2 * time.Nanosecond)
+
+		// Verify the token is actually expired
+		_, err = shortJWTManager.ValidateToken(expiredToken)
+		assert.Error(t, err)
+
+		// Make request with expired access token and valid refresh token cookie
+		// Use deactivate endpoint which allows self-deactivation
+		req, _ := http.NewRequest("POST", "/api/v1/auth/users/"+claims.UserID+"/deactivate", nil)
+		req.Header.Set("Authorization", "Bearer "+expiredToken)
+		req.AddCookie(&http.Cookie{
+			Name:  "gin_api_refresh_token",
+			Value: loginResponse.RefreshToken,
+		})
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		// Check if auto-refresh worked by looking for X-New-Access-Token header
+		newAccessToken := w.Header().Get("X-New-Access-Token")
+		assert.NotEmpty(t, newAccessToken, "X-New-Access-Token header should be present when auto-refresh works")
+		assert.Equal(t, http.StatusOK, w.Code, "Request should succeed after auto-refresh")
+
+		// Verify the new access token is valid
+		newClaims, err := globalJWTManager.ValidateToken(newAccessToken)
+		assert.NoError(t, err, "New access token should be valid")
+		assert.Equal(t, claims.UserID, newClaims.UserID, "New access token should have same user ID")
+
+		t.Logf("Auto-refresh worked! New access token generated: %s...", newAccessToken[:20])
 	})
 }

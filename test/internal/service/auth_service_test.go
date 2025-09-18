@@ -24,7 +24,6 @@ const (
 const (
 	testUserID      = "test-user-id"
 	testOtherUserID = "test-other-user-id"
-	testAdminUserID = "admin-user-id-6734"
 )
 
 // Helper functions
@@ -371,7 +370,7 @@ func TestAuthService_ActivateUser(t *testing.T) {
 		mockUserRepo.On("Update", mock.Anything, mock.Anything).Return(updatedUser, nil)
 
 		// run
-		result, err := authService.ActivateUser(userID, testAdminUserID)
+		result, err := authService.ActivateUser(userID, model.RoleAdmin)
 
 		// assert
 		assert.NoError(t, err)
@@ -387,7 +386,7 @@ func TestAuthService_ActivateUser(t *testing.T) {
 		userID := testUserID
 
 		// run
-		result, err := authService.ActivateUser(userID, userID)
+		result, err := authService.ActivateUser(userID, model.RoleUser)
 
 		// assert
 		assert.ErrorIs(t, err, apperrors.ErrForbidden)
@@ -407,7 +406,7 @@ func TestAuthService_DeactivateUser(t *testing.T) {
 		mockUserRepo.On("Update", mock.Anything, mock.Anything).Return(updatedUser, nil)
 
 		// run
-		result, err := authService.DeactivateUser(userID, testAdminUserID)
+		result, err := authService.DeactivateUser(userID, testOtherUserID, model.RoleAdmin)
 
 		// assert
 		assert.NoError(t, err)
@@ -429,7 +428,7 @@ func TestAuthService_DeactivateUser(t *testing.T) {
 		mockUserRepo.On("Update", mock.Anything, mock.Anything).Return(updatedUser, nil)
 
 		// run
-		result, err := authService.DeactivateUser(userID, userID)
+		result, err := authService.DeactivateUser(userID, userID, model.RoleUser)
 
 		// assert
 		assert.NoError(t, err)
@@ -445,7 +444,7 @@ func TestAuthService_DeactivateUser(t *testing.T) {
 		userID := testUserID
 
 		// run
-		result, err := authService.DeactivateUser(userID, testOtherUserID)
+		result, err := authService.DeactivateUser(userID, testOtherUserID, model.RoleUser)
 
 		// assert
 		assert.ErrorIs(t, err, apperrors.ErrForbidden)
