@@ -17,7 +17,7 @@ import (
 // NewServer creates and configures a new Gin server
 func NewServer(cfg *config.Config) *gin.Engine {
 	// Set Gin mode based on environment
-	if cfg.Env == "production" {
+	if cfg.Env == config.Production {
 		gin.SetMode(gin.ReleaseMode)
 	}
 

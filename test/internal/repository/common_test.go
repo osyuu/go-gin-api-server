@@ -19,7 +19,7 @@ const (
 func TestMain(m *testing.M) {
 	// Initialize test configuration and logger
 	cfg := config.LoadTestConfig()
-	logger.Init("test")
+	logger.Init(config.Test)
 
 	logger.Log.Info("TestMain started - Initializing repository test environment")
 

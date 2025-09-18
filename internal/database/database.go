@@ -15,10 +15,16 @@ var DB *gorm.DB
 
 // InitDatabase 初始化資料庫連接
 func InitDatabase(cfg config.DatabaseConfig) error {
+	var dsn string
 
-	// 構建 DSN (Data Source Name)
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s timezone=%s",
-		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode, "UTC")
+	// 優先使用 URL
+	if cfg.URL != "" {
+		dsn = cfg.URL
+	} else {
+		// 否則組裝 DSN
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s timezone=%s",
+			cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode, "UTC")
+	}
 
 	// 配置 GORM
 	var err error

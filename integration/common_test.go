@@ -38,7 +38,7 @@ var (
 func TestMain(m *testing.M) {
 	// 初始化測試專用配置和日誌
 	globalConfig = config.LoadTestConfig()
-	logger.Init("test")
+	logger.Init(config.Test)
 
 	// 確認 TestMain 被執行
 	logger.Log.Info("🚀 TestMain started - Initializing integration test environment")
