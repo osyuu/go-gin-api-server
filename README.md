@@ -64,12 +64,13 @@ A robust REST API server built with Go, Gin framework, and PostgreSQL, featuring
 
 #### Core Features
 
-- [ ] **Role-Based Access Control**
+- [x] **Role-Based Access Control**
 
-  - [ ] Implement user roles (admin, user, moderator)
-  - [ ] Add role-based permissions middleware
-  - [ ] Update user activation/deactivation to use roles
-  - [ ] Add role management endpoints
+  - [x] Implement user roles (admin, user)
+  - [x] Add role-based permissions middleware
+  - [x] Update user activation/deactivation to use roles
+  - [x] Post ownership permission checks
+  - [x] Comprehensive RBAC testing
 
 - [ ] **Enhanced Security**
 
