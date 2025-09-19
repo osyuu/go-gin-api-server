@@ -45,9 +45,14 @@ func LoadConfig() *Config {
 	databaseURL := getEnv("DATABASE_URL", "")
 	dbConfig := parseDatabaseURL(databaseURL)
 
-	fmt.Printf("Railway APP_ENV: %s\n", env)
-	fmt.Printf("Railway DATABASE_URL: %s\n", databaseURL)
-	fmt.Printf("Railway Database Config: %s\n", dbConfig.Host)
+	fmt.Printf("=====================DATABASE CONFIG=========================\n")
+	fmt.Printf("APP_ENV: %s\n", env)
+	fmt.Printf("Database Host: %s\n", dbConfig.Host)
+	fmt.Printf("Database Port: %s\n", dbConfig.Port)
+	fmt.Printf("Database User: %s\n", dbConfig.User)
+	fmt.Printf("Database DBName: %s\n", dbConfig.DBName)
+	fmt.Printf("Database SSLMode: %s\n", dbConfig.SSLMode)
+	fmt.Printf("=============================================================\n")
 
 	// 開發和生產環境配置
 	AppConfig = &Config{
