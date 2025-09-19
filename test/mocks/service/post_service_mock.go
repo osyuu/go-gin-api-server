@@ -26,10 +26,10 @@ func (m *PostServiceMock) Create(post *model.Post) (*model.Post, error) {
 	return nil, args.Error(1)
 }
 
-func (m *PostServiceMock) List(request model.CursorRequest) (*model.CursorResponse[model.Post], error) {
+func (m *PostServiceMock) List(request model.CursorRequest) (*model.CursorResponse[model.PostResponse], error) {
 	args := m.Called(request)
 	if list := args.Get(0); list != nil {
-		listResult, ok := list.(*model.CursorResponse[model.Post])
+		listResult, ok := list.(*model.CursorResponse[model.PostResponse])
 		if !ok {
 			return nil, args.Error(1)
 		}
@@ -38,10 +38,10 @@ func (m *PostServiceMock) List(request model.CursorRequest) (*model.CursorRespon
 	return nil, args.Error(1)
 }
 
-func (m *PostServiceMock) GetByID(id uint64) (*model.Post, error) {
+func (m *PostServiceMock) GetByID(id uint64) (*model.PostResponse, error) {
 	args := m.Called(id)
 	if p := args.Get(0); p != nil {
-		postResult, ok := p.(*model.Post)
+		postResult, ok := p.(*model.PostResponse)
 		if !ok {
 			return nil, args.Error(1)
 		}

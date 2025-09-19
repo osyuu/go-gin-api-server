@@ -10,8 +10,8 @@ import (
 
 type PostService interface {
 	Create(post *model.Post) (*model.Post, error)
-	List(request model.CursorRequest) (*model.CursorResponse[model.Post], error)
-	GetByID(id uint64) (*model.Post, error)
+	List(request model.CursorRequest) (*model.CursorResponse[model.PostResponse], error)
+	GetByID(id uint64) (*model.PostResponse, error)
 	Update(id uint64, post *model.Post, currentUserID string) (*model.Post, error)
 	Delete(id uint64, currentUserID string) error
 }
@@ -38,7 +38,7 @@ func (s *postServiceImpl) Create(post *model.Post) (*model.Post, error) {
 	return s.repo.Create(post)
 }
 
-func (s *postServiceImpl) List(request model.CursorRequest) (*model.CursorResponse[model.Post], error) {
+func (s *postServiceImpl) List(request model.CursorRequest) (*model.CursorResponse[model.PostResponse], error) {
 	// Set defaults
 	request.SetDefaults()
 
@@ -79,15 +79,46 @@ func (s *postServiceImpl) List(request model.CursorRequest) (*model.CursorRespon
 		})
 	}
 
-	return &model.CursorResponse[model.Post]{
-		Data:    posts,
+	responses := make([]model.PostResponse, 0, len(posts))
+
+	for _, post := range posts {
+		response := model.PostResponse{
+			Post: post,
+		}
+		if post.Author != nil {
+			response.Author = &model.AuthorSummary{
+				ID:       post.Author.ID,
+				Name:     post.Author.Name,
+				Username: post.Author.Username,
+			}
+		}
+		responses = append(responses, response)
+	}
+
+	return &model.CursorResponse[model.PostResponse]{
+		Data:    responses,
 		Next:    nextCursor,
 		HasMore: hasMore,
 	}, nil
 }
 
-func (s *postServiceImpl) GetByID(id uint64) (*model.Post, error) {
-	return s.repo.FindByID(id)
+func (s *postServiceImpl) GetByID(id uint64) (*model.PostResponse, error) {
+	post, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+	response := model.PostResponse{
+		Post: *post,
+	}
+	if post.Author != nil {
+		response.Author = &model.AuthorSummary{
+			ID:       post.Author.ID,
+			Name:     post.Author.Name,
+			Username: post.Author.Username,
+		}
+	}
+
+	return &response, nil
 }
 
 func (s *postServiceImpl) Update(id uint64, post *model.Post, currentUserID string) (*model.Post, error) {

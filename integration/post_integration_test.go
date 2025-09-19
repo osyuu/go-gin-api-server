@@ -78,13 +78,13 @@ func TestPostIntegration_PostLifecycle(t *testing.T) {
 	getResp := makeHTTPRequest(t, router, "GET", fmt.Sprintf("/api/v1/posts/%d", postID), nil, "")
 	assert.Equal(t, 200, getResp.Code)
 
-	var retrievedPost model.Post
-	parseJSONResponse(t, getResp, &retrievedPost)
-	assert.Equal(t, createdPost.ID, retrievedPost.ID)
-	assert.Equal(t, createdPost.Content, retrievedPost.Content)
-	assert.Equal(t, user.ID, retrievedPost.Author.ID)
-	assert.Equal(t, user.Name, retrievedPost.Author.Name)
-	assert.Nil(t, retrievedPost.Author.Email)
+	var postResponse model.PostResponse
+	parseJSONResponse(t, getResp, &postResponse)
+	assert.Equal(t, createdPost.ID, postResponse.Post.ID)
+	assert.Equal(t, createdPost.Content, postResponse.Post.Content)
+	assert.Equal(t, user.ID, postResponse.Author.ID)
+	assert.Equal(t, user.Name, postResponse.Author.Name)
+	assert.Equal(t, *user.Username, *postResponse.Author.Username)
 
 	// 4. 更新 post
 	updateReq := map[string]interface{}{
@@ -203,7 +203,7 @@ func TestPostIntegration_GetPosts_CursorPagination(t *testing.T) {
 	getResp := makeHTTPRequest(t, router, "GET", "/api/v1/posts?limit=2", nil, "")
 	assert.Equal(t, 200, getResp.Code)
 
-	var firstPage model.CursorResponse[model.Post]
+	var firstPage model.CursorResponse[model.PostResponse]
 	parseJSONResponse(t, getResp, &firstPage)
 	assert.Len(t, firstPage.Data, 2)
 	assert.True(t, firstPage.HasMore)
@@ -213,7 +213,7 @@ func TestPostIntegration_GetPosts_CursorPagination(t *testing.T) {
 	getResp2 := makeHTTPRequest(t, router, "GET", fmt.Sprintf("/api/v1/posts?limit=2&cursor=%s", firstPage.Next), nil, "")
 	assert.Equal(t, 200, getResp2.Code)
 
-	var secondPage model.CursorResponse[model.Post]
+	var secondPage model.CursorResponse[model.PostResponse]
 	parseJSONResponse(t, getResp2, &secondPage)
 	assert.Len(t, secondPage.Data, 2)
 	assert.True(t, secondPage.HasMore)
@@ -223,18 +223,18 @@ func TestPostIntegration_GetPosts_CursorPagination(t *testing.T) {
 	getResp3 := makeHTTPRequest(t, router, "GET", fmt.Sprintf("/api/v1/posts?limit=2&cursor=%s", secondPage.Next), nil, "")
 	assert.Equal(t, 200, getResp3.Code)
 
-	var lastPage model.CursorResponse[model.Post]
+	var lastPage model.CursorResponse[model.PostResponse]
 	parseJSONResponse(t, getResp3, &lastPage)
 	assert.Len(t, lastPage.Data, 1) // 只剩一個 post
 	assert.False(t, lastPage.HasMore)
 	assert.Empty(t, lastPage.Next)
 
 	// 4. 驗證數據順序（應該按 created_at DESC 排序）
-	assert.Equal(t, "Post 5 - Fifth", firstPage.Data[0].Content)
-	assert.Equal(t, "Post 4 - Fourth", firstPage.Data[1].Content)
-	assert.Equal(t, "Post 3 - Third", secondPage.Data[0].Content)
-	assert.Equal(t, "Post 2 - Second", secondPage.Data[1].Content)
-	assert.Equal(t, "Post 1 - First", lastPage.Data[0].Content)
+	assert.Equal(t, "Post 5 - Fifth", firstPage.Data[0].Post.Content)
+	assert.Equal(t, "Post 4 - Fourth", firstPage.Data[1].Post.Content)
+	assert.Equal(t, "Post 3 - Third", secondPage.Data[0].Post.Content)
+	assert.Equal(t, "Post 2 - Second", secondPage.Data[1].Post.Content)
+	assert.Equal(t, "Post 1 - First", lastPage.Data[0].Post.Content)
 }
 
 func TestPostIntegration_GetPosts_InvalidCursor(t *testing.T) {

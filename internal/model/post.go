@@ -30,6 +30,18 @@ func (p *Post) BeforeUpdate(tx *gorm.DB) error {
 	return nil
 }
 
+// Post DTO
+type PostResponse struct {
+	Post
+	Author *AuthorSummary `json:"author,omitempty"`
+}
+
+type AuthorSummary struct {
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	Username *string `json:"username,omitempty"`
+}
+
 // ListOptions for post list query
 type PostListOptions struct {
 	AuthorID *string `json:"author_id,omitempty"`

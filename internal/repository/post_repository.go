@@ -50,9 +50,7 @@ func (r *postRepositoryImpl) List(opts model.PostListOptions) ([]model.Post, err
 		return nil, apperrors.ErrValidation
 	}
 
-	query := r.db.Preload("Author", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, name, username")
-	}).
+	query := r.db.Preload("Author").
 		Order("created_at DESC, id DESC").
 		Limit(opts.Limit)
 
@@ -82,9 +80,7 @@ func (r *postRepositoryImpl) List(opts model.PostListOptions) ([]model.Post, err
 
 func (r *postRepositoryImpl) FindByID(id uint64) (*model.Post, error) {
 	var post model.Post
-	if err := r.db.Preload("Author", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, name, username")
-	}).
+	if err := r.db.Preload("Author").
 		Where("id = ?", id).
 		First(&post).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

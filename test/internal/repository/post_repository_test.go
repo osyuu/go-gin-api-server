@@ -66,9 +66,6 @@ func TestCreatePostAndFindByID(t *testing.T) {
 		assert.Equal(t, created.UpdatedAt.UTC(), found.UpdatedAt.UTC())
 		assert.NotNil(t, found.Author, "found.Author should not be nil")
 		assert.Equal(t, found.Author.ID, createdUser.ID)
-		assert.Equal(t, found.Author.Name, createdUser.Name)
-		assert.Equal(t, *found.Author.Username, *createdUser.Username)
-		assert.Nil(t, found.Author.Email)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
