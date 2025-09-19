@@ -82,6 +82,9 @@ func TestPostIntegration_PostLifecycle(t *testing.T) {
 	parseJSONResponse(t, getResp, &retrievedPost)
 	assert.Equal(t, createdPost.ID, retrievedPost.ID)
 	assert.Equal(t, createdPost.Content, retrievedPost.Content)
+	assert.Equal(t, user.ID, retrievedPost.Author.ID)
+	assert.Equal(t, user.Name, retrievedPost.Author.Name)
+	assert.Nil(t, retrievedPost.Author.Email)
 
 	// 4. 更新 post
 	updateReq := map[string]interface{}{
