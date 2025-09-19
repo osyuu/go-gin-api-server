@@ -243,7 +243,8 @@ func TestGetPostByID(t *testing.T) {
 
 		// assert
 		assert.NoError(t, err)
-		assert.Equal(t, created, found)
+		assert.NotNil(t, found)
+		assert.Equal(t, created.ID, found.Post.ID)
 		repo.AssertExpectations(t)
 	})
 
@@ -283,7 +284,7 @@ func TestListPosts(t *testing.T) {
 		// assert
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Equal(t, []model.Post{}, result.Data)
+		assert.Equal(t, []model.PostResponse{}, result.Data)
 		assert.Equal(t, "", result.Next)
 		assert.Equal(t, false, result.HasMore)
 		repo.AssertExpectations(t)
