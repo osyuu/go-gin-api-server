@@ -4,4 +4,4 @@ WORKDIR /migrations
 
 COPY ./migrations /migrations
 
-CMD ["sh", "-c", "migrate -path /migrations -database $DATABASE_URL up"]
+ENTRYPOINT ["sh", "-c", "migrate -path /migrations -database $DATABASE_URL up"]
