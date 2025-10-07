@@ -32,6 +32,7 @@ func setupIntegrationPostRouter(db *gorm.DB) *gin.Engine {
 	postHandler := handler.NewPostHandler(postService, logger.Log)
 	authMiddleware := middleware.NewAuthMiddleware(authService, logger.Log)
 	rbacMiddleware := middleware.NewRBACMiddleware(logger.Log)
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware(logger.Log)
 
 	// Setup router
 	gin.SetMode(gin.TestMode)
@@ -46,7 +47,7 @@ func setupIntegrationPostRouter(db *gorm.DB) *gin.Engine {
 	postHandler.RegisterRoutes(r)
 
 	// 註冊受保護的路由
-	postHandler.RegisterProtectedRoutes(r, authMiddleware, rbacMiddleware)
+	postHandler.RegisterProtectedRoutes(r, authMiddleware, rbacMiddleware, rateLimitMiddleware)
 
 	return r
 }
