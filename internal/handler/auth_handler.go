@@ -6,6 +6,7 @@ import (
 	"go-gin-api-server/internal/service"
 	"go-gin-api-server/pkg/apperrors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -23,20 +24,30 @@ func NewAuthHandler(authService service.AuthService, logger *zap.Logger) *AuthHa
 	}
 }
 
-func (h *AuthHandler) RegisterRoutes(r *gin.Engine) {
+// RegisterRoutesWithRateLimit Register routes with rate limit
+func (h *AuthHandler) RegisterRoutes(
+	r *gin.Engine,
+	rateLimitMiddleware *middleware.RateLimitMiddleware,
+) {
 	auth := r.Group("/api/v1/auth")
 	{
-		auth.POST("/register", h.Register)
-		auth.POST("/login", h.Login)
-		auth.POST("/refresh", h.RefreshToken)
+		auth.POST("/register", rateLimitMiddleware.IPRateLimit(10, time.Minute), h.Register)
+		auth.POST("/login", rateLimitMiddleware.IPRateLimit(10, time.Minute), h.Login)
+		auth.POST("/refresh", rateLimitMiddleware.IPRateLimit(10, time.Minute), h.RefreshToken)
 	}
 }
 
-func (h *AuthHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware, rbacMiddleware *middleware.RBACMiddleware) {
+func (h *AuthHandler) RegisterProtectedRoutes(
+	r *gin.Engine,
+	authMiddleware *middleware.AuthMiddleware,
+	rbacMiddleware *middleware.RBACMiddleware,
+	rateLimitMiddleware *middleware.RateLimitMiddleware,
+) {
 	// Admin-only routes
 	admin := r.Group("/api/v1/auth")
 	admin.Use(authMiddleware.RequireAuth())
 	admin.Use(rbacMiddleware.RequireAdmin())
+	admin.Use(rateLimitMiddleware.ModerateRateLimit())
 	{
 		// Only admin can activate users
 		admin.POST("/users/:id/activate", h.ActivateUser)

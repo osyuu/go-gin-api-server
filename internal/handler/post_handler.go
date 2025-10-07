@@ -33,10 +33,16 @@ func (h *PostHandler) RegisterRoutes(r *gin.Engine) {
 	}
 }
 
-func (h *PostHandler) RegisterProtectedRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware, rbacMiddleware *middleware.RBACMiddleware) {
+func (h *PostHandler) RegisterProtectedRoutes(
+	r *gin.Engine,
+	authMiddleware *middleware.AuthMiddleware,
+	rbacMiddleware *middleware.RBACMiddleware,
+	rateLimitMiddleware *middleware.RateLimitMiddleware,
+) {
 	// Basic protected routes - require authentication
 	protected := r.Group("/api/v1/posts")
 	protected.Use(authMiddleware.RequireAuth())
+	protected.Use(rateLimitMiddleware.ModerateRateLimit())
 	{
 		protected.POST("", h.CreatePost)
 		protected.PATCH("/:id", h.UpdatePost)
