@@ -34,6 +34,7 @@ func setupIntegrationAuthRouter(db *gorm.DB) *gin.Engine {
 	// Setup middleware
 	authMiddleware := middleware.NewAuthMiddleware(authService, logger.Log)
 	rbacMiddleware := middleware.NewRBACMiddleware(logger.Log)
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware(logger.Log)
 
 	// Setup router
 	gin.SetMode(gin.TestMode)
@@ -45,8 +46,8 @@ func setupIntegrationAuthRouter(db *gorm.DB) *gin.Engine {
 	}
 
 	// Register routes
-	authHandler.RegisterRoutes(router)
-	authHandler.RegisterProtectedRoutes(router, authMiddleware, rbacMiddleware)
+	authHandler.RegisterRoutes(router, rateLimitMiddleware)
+	authHandler.RegisterProtectedRoutes(router, authMiddleware, rbacMiddleware, rateLimitMiddleware)
 
 	return router
 }
@@ -288,5 +289,26 @@ func TestAuthIntegration_AutoRefresh(t *testing.T) {
 		assert.Equal(t, claims.UserID, newClaims.UserID, "New access token should have same user ID")
 
 		t.Logf("Auto-refresh worked! New access token generated: %s...", newAccessToken[:20])
+	})
+}
+
+func TestAuthIntegration_RateLimit_Login(t *testing.T) {
+	db := setup()
+	defer teardown(db)
+	router := setupIntegrationAuthRouter(db)
+
+	// Test refresh token rate limit with wrong password
+	t.Run("RefreshToken_RateLimit", func(t *testing.T) {
+		for i := 0; i < 12; i++ { // 超過10次限制
+			resp := makeHTTPRequest(t, router, "POST", "/api/v1/auth/refresh", nil, "wrong-refresh-token")
+
+			if i < 10 {
+				// 前10次應該返回認證錯誤
+				assert.Equal(t, http.StatusUnauthorized, resp.Code)
+			} else {
+				// 第10次開始應該被限流
+				assert.Equal(t, http.StatusTooManyRequests, resp.Code)
+			}
+		}
 	})
 }

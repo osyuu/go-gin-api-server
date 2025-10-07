@@ -63,16 +63,20 @@ func NewServer(cfg *config.Config) *gin.Engine {
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authService, logger.Log)
 	rbacMiddleware := middleware.NewRBACMiddleware(logger.Log)
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware(logger.Log)
 
 	// Register routes
+	authHandler.RegisterRoutes(router, rateLimitMiddleware)
 	userHandler.RegisterRoutes(router)
-	authHandler.RegisterRoutes(router)
 	postHandler.RegisterRoutes(router)
 
 	// Register protected routes
 	userHandler.RegisterProtectedRoutes(router, authMiddleware, rbacMiddleware)
-	postHandler.RegisterProtectedRoutes(router, authMiddleware, rbacMiddleware)
-	authHandler.RegisterProtectedRoutes(router, authMiddleware, rbacMiddleware)
+	postHandler.RegisterProtectedRoutes(router, authMiddleware, rbacMiddleware, rateLimitMiddleware)
+	authHandler.RegisterProtectedRoutes(router, authMiddleware, rbacMiddleware, rateLimitMiddleware)
+
+	// Add rate limiting middleware
+	router.Use(rateLimitMiddleware.LooseRateLimit()) // 全局寬鬆限流
 
 	return router
 }
